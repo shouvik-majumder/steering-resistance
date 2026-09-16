@@ -189,11 +189,15 @@ D:\dev\ESR\
   appear only in the larger model and at a few-percent rate; the meta-prompt makes the model
   restart more insistently ("Hold on... Let's try this again" x3) without improving the
   correction. Rates are within the paper's 9B range (1.0% multi-attempt / 0.5% ESR) given n=40.
-- **Next (Phase C, mechanistic):** `04_find_detectors.py --model gemma-9b` needs only unsteered
-  responses (~40 min). Measuring an ablation *effect* on ESR needs many episodes: at ~2.5%
-  multi-attempt, ~1,000 9B meta-prompt trials (~18 GPU-hours, resumable) give ~25 episodes.
-  Alternative cheap probe: replay the omelette hot-spot trial (latent 9465, seed fixed) with and
-  without detector ablation across many seeds/boosts.
+- **Overnight run launched 2026-09-16 evening** (`data/results/logs/gemma-9b_overnight.log`,
+  ~11 h, resumable): (1) `04_find_detectors.py --model gemma-9b` (unsteered answers,
+  derangement contrast) -> `data/detectors/gemma-9b_seed0_response.json`; (2) meta-prompt run
+  with 20 concrete latents x 20 trials (10 new calibrations, 40 existing trials reused), aiming
+  for ~10 episodes at the observed 2.5% rate; (3) Qwen re-scoring of the self-judged rows.
+- **After that (Phase C):** inspect detector labels/stats; run `03 --ablate <detectors.json>
+  --meta-prompt` and `--random-control` on the same 20 latents; compare multi-attempt rates.
+  Cheap targeted probe: replay the omelette hot-spot trial (latent 9465) across seeds with and
+  without ablation.
 
 ## 6. Implementation details that matter
 
