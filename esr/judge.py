@@ -192,7 +192,12 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
         probe = cur.text.strip()[:60]
         cur_start = response.find(probe, cursor) if len(probe) >= 12 else -1
         if cur_start < 0:
-            merged[-1].append(cur)  # cannot locate the boundary -> not a verified restart
+            # Cannot locate the boundary (empty/paraphrased attempt_text). Trust the judge only
+            # while the response still has unused explicit restart phrases to account for it.
+            if len(merged) <= n_phrases:
+                merged.append([cur])
+            else:
+                merged[-1].append(cur)
             continue
         # Only the response text counts: judges can fabricate restart phrases inside attempt_text.
         boundary = response[max(0, cur_start - 200): cur_start + window]
