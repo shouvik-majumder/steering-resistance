@@ -37,12 +37,14 @@ def main() -> None:
     for f in sorted(glob.glob(args.results)):
         path = Path(f)
         rows = list(read_jsonl(path))
+        # Re-grade rows that are missing, errored, or were graded by a *different* judge
+        # (e.g. the self-judge during a 9B run), so every file ends up scored by one judge.
         todo = [
             r for r in rows
             if args.force
             or not r.get("judge")
             or r["judge"].get("error")
-            or (r["judge"].get("judge", "").startswith("regex") and args.judge != "regex")
+            or r["judge"].get("judge", "") != judge.name
         ]
         print(f"{path.name}: {len(rows)} rows, grading {len(todo)}")
         for i, r in enumerate(tqdm(todo, desc=path.stem)):
