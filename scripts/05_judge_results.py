@@ -64,16 +64,16 @@ def regate(files: list[str]) -> None:
         changed = 0
         for r in rows:
             j = r.get("judge")
-            if not j or j.get("error") or not j.get("raw"):
+            if not j or not j.get("raw") or (j.get("error") and j["error"] != "parse_failed"):
                 continue
-            attempts = parse_attempts(j["raw"])
+            attempts = parse_attempts(j["raw"])  # may now succeed on previously unparseable output
             if attempts is None:
                 continue
             gated = gate_attempts_by_restart(attempts, r["response"])
             new = [asdict(a) for a in gated]
-            if new != j["attempts"] or j.get("n_attempts_raw") != len(attempts):
+            if new != j["attempts"] or j.get("n_attempts_raw") != len(attempts) or j.get("error"):
                 changed += 1
-            j["attempts"], j["n_attempts_raw"] = new, len(attempts)
+            j["attempts"], j["n_attempts_raw"], j["error"] = new, len(attempts), None
         _write(path, rows)
         print(f"{path.name}: re-gated {len(rows)} rows, {changed} changed")
         print(format_summary(path.stem, summarize(rows)))
