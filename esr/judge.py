@@ -176,7 +176,9 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
     Merged attempts get the length-weighted mean of their scores."""
     if len(attempts) <= 1:
         return attempts
-    n_phrases = len(restart_clusters(response))
+    clusters = restart_clusters(response)
+    n_phrases = len(clusters)
+    used: set[int] = set()  # each restart event can justify at most one attempt boundary
     if n_phrases == 0:
         # No explicit restart anywhere: by the paper's definition this is exactly one attempt.
         # (Small judges sometimes invent a cleaned-up "second attempt" that is not in the text.)
@@ -200,8 +202,10 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
                 merged[-1].append(cur)
             continue
         # Only the response text counts: judges can fabricate restart phrases inside attempt_text.
-        boundary = response[max(0, cur_start - 200): cur_start + window]
-        if _RESTART.search(boundary):
+        lo, hi = max(0, cur_start - 200), cur_start + window
+        event = next((c for c in clusters if lo <= c < hi and c not in used), None)
+        if event is not None:
+            used.add(event)
             merged.append([cur])
         else:
             merged[-1].append(cur)
@@ -387,6 +391,10 @@ _RESTART = re.compile(
     r"|i\s+made\s+a\s+mistake|i\s+apologi[sz]e\s+for\s+the\s+(confusion|error|mistake)"
     r"|that'?s\s+not\s+(right|correct|what)|i'?d\s+like\s+to\s+revise|to\s+correct\s+myself"
     r"|hold\s+on,|hmm,?\s+(that|this)\s+(doesn'?t|isn'?t)"
+    # generic explicit-restart cues seen in steered Gemma outputs
+    r"|(this|that)\s+is\s+(ridiculous|nonsense|absurd|not\s+helpful)|scratch\s+that|never\s+mind"
+    r"|on\s+second\s+thought|let'?s\s+(try\s+(this|that|it)\s+again|start\s+(again|fresh)|get\s+(you\s+)?back\s+on\s+track|get\s+you\s+a\s+\w+\s+that\s+will\s+work)"
+    r"|let\s+me\s+(redo|rewrite|re-?start|get\s+back\s+on\s+track|be\s+serious)|okay,?\s+seriously|back\s+to\s+(the|your)\s+(question|topic)"
     r")",
     re.IGNORECASE,
 )
