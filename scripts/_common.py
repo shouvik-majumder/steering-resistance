@@ -9,7 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from esr.config import META_PROMPT_DEFAULT, MODELS, ROOT, ExperimentConfig  # noqa: E402
 
-JUDGE_CHOICES = ["local", "regex", "anthropic", "none"]
+JUDGE_CHOICES = ["local", "self", "regex", "anthropic", "none"]
 
 
 def base_parser(desc: str, default_judge: str = "regex") -> argparse.ArgumentParser:
@@ -17,6 +17,7 @@ def base_parser(desc: str, default_judge: str = "regex") -> argparse.ArgumentPar
     ap.add_argument("--model", default="gemma-2b", choices=sorted(MODELS))
     ap.add_argument("--judge", default=default_judge, choices=JUDGE_CHOICES,
                     help="local = free open model on the GPU (default Qwen2.5-7B-Instruct); "
+                         "self = the target model judges its own unsteered outputs (no extra VRAM); "
                          "regex = restart-phrase counting only; anthropic = paid API; none = generate only")
     ap.add_argument("--judge-model", default=None,
                     help="HF id for --judge local (e.g. Qwen/Qwen2.5-3B-Instruct) or Anthropic model id")
@@ -55,12 +56,12 @@ def make_engine(args, prompts: list[str], load_model: bool = True):
     return engine
 
 
-def make_judge_or_none(args):
+def make_judge_or_none(args, engine=None):
     if args.judge == "none":
         return None
     from esr.judge import make_judge
 
-    judge = make_judge(args.judge, model=args.judge_model)
+    judge = make_judge(args.judge, model=args.judge_model, engine=engine)
     print(f"judge: {judge.name}")
     return judge
 

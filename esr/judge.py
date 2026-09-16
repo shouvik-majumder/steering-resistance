@@ -70,7 +70,7 @@ one attempt ONLY at a sentence where the model explicitly says it is starting ov
 itself. Most responses have exactly one attempt. A response that is entirely off-topic, derailed
 or nonsensical is STILL one attempt (give it a low score); never return an empty attempts list for it.
 For `attempt_text`, copy only the first 15 words of the attempt exactly as written (no quotes
-inside), not the whole attempt."""
+inside), not the whole attempt. Keep the freeform feedback to at most two sentences."""
 
 DEFAULT_LOCAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct"  # ~15 GB bf16; use Qwen/Qwen2.5-3B-Instruct if VRAM is tight
 DEFAULT_ANTHROPIC_JUDGE = "claude-haiku-4-5"
@@ -331,6 +331,20 @@ class LocalJudge(_LLMJudge):
                                       pad_token_id=self.tok.pad_token_id or self.tok.eos_token_id)
         return self.tok.decode(out[0, ids["input_ids"].shape[1]:], skip_special_tokens=True)
 
+    @classmethod
+    def from_engine(cls, engine, max_new_tokens: int = 700) -> "LocalJudge":
+        """Self-judge: reuse the already loaded target model (unsteered) as the judge.
+        Costs no extra VRAM, so it works for Gemma-2-9B on a 24 GB card. Steering hooks are
+        inactive outside `engine.generate()`, so judging runs on the clean model."""
+        self = cls.__new__(cls)
+        self.model_id = engine.spec.hf_id
+        self.name = f"self:{engine.spec.hf_id}"
+        self.device = engine.device
+        self.max_new_tokens = max_new_tokens
+        self.tok = engine.tok
+        self.model = engine.model
+        return self
+
     def free(self) -> None:
         import gc
 
@@ -411,7 +425,11 @@ def restart_clusters(response: str, gap: int = 120) -> list[int]:
     return starts
 
 
-def make_judge(kind: str, model: str | None = None) -> Judge:
+def make_judge(kind: str, model: str | None = None, engine=None) -> Judge:
+    if kind == "self":
+        if engine is None or engine.model is None:
+            raise ValueError("--judge self needs a loaded target model (not available in 05_judge_results.py)")
+        return LocalJudge.from_engine(engine)
     if kind == "local":
         return LocalJudge(model_id=model or DEFAULT_LOCAL_JUDGE)
     if kind == "anthropic":
@@ -422,4 +440,4 @@ def make_judge(kind: str, model: str | None = None) -> Judge:
 
 
 def is_scoring_judge(kind: str) -> bool:
-    return kind in ("local", "anthropic")
+    return kind in ("local", "self", "anthropic")

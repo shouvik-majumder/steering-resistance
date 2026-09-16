@@ -31,7 +31,7 @@ def main() -> None:
     prompts = cfg.prompts()
     labels = load_labels(MODELS[args.model])
     engine = make_engine(args, prompts)
-    judge = make_judge_or_none(args)
+    judge = make_judge_or_none(args, engine)
 
     latents = parse_int_list(args.latents)
     if not latents:

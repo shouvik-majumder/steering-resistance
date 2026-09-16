@@ -56,7 +56,7 @@ def main() -> None:
     labels = load_labels(spec)
 
     engine = make_engine(args, prompts)
-    judge = make_judge_or_none(args)
+    judge = make_judge_or_none(args, engine)
 
     # ---------------------------------------------------------------- ablation set
     ablate: list[int] | None = None

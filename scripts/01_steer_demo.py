@@ -34,7 +34,7 @@ def main() -> None:
     prompts = ExperimentConfig(model=args.model).prompts()
     prompt = resolve_prompt(args.prompt, prompts)
     engine = make_engine(args, prompts)
-    judge = make_judge_or_none(args)
+    judge = make_judge_or_none(args, engine)
     label = label_of(labels, args.latent)
     ablate = [int(x) for x in args.ablate.split(",")] if args.ablate else None
 
