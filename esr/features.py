@@ -44,7 +44,9 @@ def relevance_exclusion(engine, prompts: list[str], top_k: int = 100, force: boo
     per_prompt: dict[str, list[int]] = {}
     for p in prompts:
         acts, _ = engine.sae_activations(p)
-        top = torch.topk(acts.max(dim=0).values, k=top_k).indices.tolist()
+        # Skip <bos> (position 0): its activations are huge and identical for every prompt, so
+        # they would swamp the per-prompt top-k and make the exclusion set prompt-independent.
+        top = torch.topk(acts[1:].max(dim=0).values, k=top_k).indices.tolist()
         per_prompt[p] = top
         exclude.update(top)
     write_json(path, {"n_prompts": len(prompts), "top_k": top_k, "exclude": sorted(exclude), "per_prompt": per_prompt})
