@@ -244,7 +244,12 @@ each answer and scores it, so we can count how often this happens.
   session closes, writing its progress to a **log** file. Needed because one experiment takes
   hours. Start one with `scripts\run_detached.ps1`, follow it with
   `Get-Content <log> -Wait -Tail 20`.
-- **Monitor**: (Claude-side) a watcher on the log file that reports milestones.
+- **Monitor**: Claude's watcher on a run's log file. Whenever a line of interest appears (a
+  per-latent summary, a self-correction hit, an error), Claude gets a notification and can
+  react without you doing anything. It is not part of the experiment, only of how Claude
+  babysits long runs. A watcher switches itself off after 30 minutes; **re-arming** means
+  starting a fresh one because the run is still going. The equivalent for you is tailing the
+  log with `Get-Content <log> -Wait -Tail 20`.
 - **Resumable**: rerunning a script with the same arguments skips trials already on disk and
   continues, so a crash or stop loses nothing.
 - **JSONL**: a text file with one JSON record per line; each line is one trial with its prompt,
