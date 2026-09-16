@@ -1,0 +1,11 @@
+.venv/
+.hf_cache/
+.env
+__pycache__/
+*.pyc
+data/results/
+data/thresholds/
+data/detectors/
+data/cache/
+data/plots/
+*.tmp
