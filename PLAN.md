@@ -194,8 +194,17 @@ D:\dev\ESR\
   derangement contrast) -> `data/detectors/gemma-9b_seed0_response.json`; (2) meta-prompt run
   with 20 concrete latents x 20 trials (10 new calibrations, 40 existing trials reused), aiming
   for ~10 episodes at the observed 2.5% rate; (3) Qwen re-scoring of the self-judged rows.
-- **After that (Phase C):** inspect detector labels/stats; run `03 --ablate <detectors.json>
-  --meta-prompt` and `--random-control` on the same 20 latents; compare multi-attempt rates.
+- **Detector search on 9B (done, 38 pairs, response-token max-pooling):** 0 latents meet the
+  repo's strict rule (zero on all matched pairs, active on >= 80% mismatched), so ablation must
+  use the effect-size set: `--ablate-set top_by_cohen_d`. Top 26 by Cohen's d (2 to 4.8, all
+  p < 1e-10): "legal cases and administrative details", "written by / biography of / about me",
+  "historical or legal citations", "category:", "numbers and codes", "citations and specific
+  words", "titles and references", ... and notably "mauvaise reponse fausse" (French: wrong /
+  false answer, d = 2.2). Reading: mismatched answers look like detached documents rather than
+  replies, plus at least one candidate "wrong answer" signal. Heterogeneous, as in the paper.
+- **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
+  data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
+  `--random-control 1` on the same 20 latents; compare multi-attempt rates.
   Cheap targeted probe: replay the omelette hot-spot trial (latent 9465) across seeds with and
   without ablation.
 
