@@ -125,8 +125,14 @@ D:\dev\ESR\
   repetition. This is the paper's Fig. 3 regime, so the 30/100 threshold is ~0.4-0.6 in
   unit-scale units and the calibration prior was moved to N(0.6, 0.3) on [0, 3].
 - No explicit self-correction seen yet (expected: 2B is 0.1% in the paper).
-- Next: local-judge check, then a small calibrated run (`03_run_esr.py --n-latents 10
-  --trials-per-latent 5`) and the `--meta-prompt` variant.
+- Local judge (Qwen2.5-7B-Instruct) fits next to Gemma-2B (19.6 GB peak) and passes the four
+  canned checks in `scripts/judge_check.py`. It over-segmented an on-topic answer into 5
+  "attempts" on first try, so `LocalJudge` adds a one-sentence clarification and gates every
+  attempt boundary on an explicit restart phrase (`gate_attempts_by_restart`); the raw count is
+  kept as `n_attempts_raw`. Judge calls take 6-14 s. Generation is the bottleneck (~33 s per
+  512-token trial), so a calibrated latent costs ~15 min.
+- Running: `03_run_esr.py --n-latents 6 --trials-per-latent 5 --n-calib-trials 10`.
+- Next: `--meta-prompt` variant, `--no-steer` control, then 9B generate-then-judge.
 
 ## 6. Implementation details that matter
 
