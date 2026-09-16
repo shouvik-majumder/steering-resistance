@@ -67,7 +67,8 @@ LOCAL_EXTRA_INSTRUCTIONS = """
 Note: a response that is one continuous answer (even if it has headings, numbered steps, bullet
 points, several sections, or changes topic gradually) is exactly ONE attempt. Split into more than
 one attempt ONLY at a sentence where the model explicitly says it is starting over or correcting
-itself. Most responses have exactly one attempt."""
+itself. Most responses have exactly one attempt. A response that is entirely off-topic, derailed
+or nonsensical is STILL one attempt (give it a low score); never return an empty attempts list for it."""
 
 DEFAULT_LOCAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct"  # ~15 GB bf16; use Qwen/Qwen2.5-3B-Instruct if VRAM is tight
 DEFAULT_ANTHROPIC_JUDGE = "claude-haiku-4-5"

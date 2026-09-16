@@ -131,8 +131,19 @@ D:\dev\ESR\
   attempt boundary on an explicit restart phrase (`gate_attempts_by_restart`); the raw count is
   kept as `n_attempts_raw`. Judge calls take 6-14 s. Generation is the bottleneck (~33 s per
   512-token trial), so a calibrated latent costs ~15 min.
-- Running: `03_run_esr.py --n-latents 6 --trials-per-latent 5 --n-calib-trials 10`.
-- Next: `--meta-prompt` variant, `--no-steer` control, then 9B generate-then-judge.
+- **Run 1 (Gemma-2-2B, steered, 6 latents x 5 trials, 117 min):** 0 multi-attempt in 29 scored
+  trials (95% CI upper bound 11.7%), mean first-attempt score 49. Consistent with the paper's
+  0.1% ESR for this model. Thresholds (unit-scale boost): static-let-proto 0.94, omega fatty
+  acids 0.73, Kubernetes 0.83, foreign locations 0.60, javax imports 0.50, loan/debt 0.66.
+  First-attempt scores are bimodal (~20 or ~85), as the paper notes, so 1 sample per bisection
+  step is noisy; two latents ended under-steered.
+- **Judge lessons (important for any free/local judge):** raw Qwen2.5-7B output would have
+  reported 3 fake multi-attempt episodes in 30 trials (fabricated "Wait, that's not right" second
+  attempts, headings split into attempts, a truncated JSON block). Fixes: restart phrases must
+  occur in the *response text*; truncated-JSON repair; response wrapped in tags; explicit
+  "nonsense is still one attempt". `05_judge_results.py --regate-only` re-applies gating offline.
+- Running: no-steer baseline (10 trials) then `--meta-prompt` (6 latents x 5 trials, cached
+  thresholds) on 2B. Gemma-2-9B-it downloading for generate-then-judge runs.
 
 ## 6. Implementation details that matter
 
