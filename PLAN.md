@@ -168,9 +168,32 @@ D:\dev\ESR\
   attempt scores below the first), so it is not an ESR success, matching the paper's point that
   small models attempt but rarely succeed. It exposed two gate bugs (regex missed the first
   restart phrasing; one phrase justified three boundaries), both fixed.
-- **Running (detached, ~4.5 h):** 9B calibrated plain run (10 concrete latents, 10-step
-  calibration, 4 trials each), then the meta-prompt run with cached thresholds, then Qwen
-  re-scoring. Log: `data/results/logs/gemma-9b_pipeline.log`.
+- **9B runs done (2026-09-16, ~4.5 h GPU):** thresholds 0.47-1.37 (median 0.73). Qwen judge,
+  final gate:
+
+  | Run | Scored | First-attempt | Multi-attempt | ESR |
+  |---|---|---|---|---|
+  | 2B no-steer | 10 | 98.5 | 0% | 0% |
+  | 2B steered | 29 | 49.0 | 0% | 0% |
+  | 2B steered + meta | 29 | 45.7 | 0% | 0% |
+  | 9B steered | 38 | 28.9 | 2.6% (1/38) | 2.6% (1/38) |
+  | 9B steered + meta | 40 | 33.6 | 2.5% (1/40) | 0% |
+
+  Both 9B episodes are the same (latent 9465, "perfect omelette", seed-matched) trial. Judge
+  agreement: the self-judge (Gemma-9B) and Qwen flag the same two episodes and give similar
+  mean first-attempt scores (35.0 vs 31), but disagree on the improvement direction of the
+  plain-run episode (self: 20 -> 60 -> 2, no ESR; Qwen: 10 -> 25, ESR). Marginal cases like
+  this are why the paper reports 90-96% cross-judge agreement, not 100%.
+- **Interpretation.** The pipeline reproduces every qualitative claim testable at this scale:
+  0% self-correction without steering; steering to ~30/100 first attempts; explicit restarts
+  appear only in the larger model and at a few-percent rate; the meta-prompt makes the model
+  restart more insistently ("Hold on... Let's try this again" x3) without improving the
+  correction. Rates are within the paper's 9B range (1.0% multi-attempt / 0.5% ESR) given n=40.
+- **Next (Phase C, mechanistic):** `04_find_detectors.py --model gemma-9b` needs only unsteered
+  responses (~40 min). Measuring an ablation *effect* on ESR needs many episodes: at ~2.5%
+  multi-attempt, ~1,000 9B meta-prompt trials (~18 GPU-hours, resumable) give ~25 episodes.
+  Alternative cheap probe: replay the omelette hot-spot trial (latent 9465, seed fixed) with and
+  without detector ablation across many seeds/boosts.
 
 ## 6. Implementation details that matter
 
