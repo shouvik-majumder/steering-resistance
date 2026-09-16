@@ -151,9 +151,18 @@ D:\dev\ESR\
   layer-26 median resid norm 422, SAE explained variance only 0.61 (L0 149): the pretrained
   Gemma Scope SAE fits the -it model worse at this depth. Steering at boost 1.0 is milder than
   on 2B, so the fixed sweep uses 0.6 / 0.9 / 1.2.
-- **Running (detached, ~4.5 h):** 9B meta-prompt sweep (10 latents x 3 boosts x 4 trials),
-  then the same without meta-prompt, then `05_judge_results.py --judge local` on both files.
-  Log: `data/results/logs/gemma-9b_pipeline.log`.
+- **Fixed boosts do not transfer between latents.** A 9B sweep at 0.6/0.9/1.2 was stopped after
+  24 generations: for "code structures or tags" 0.6 already gives gibberish and 0.9 endless
+  "1"s, i.e. the degenerate regime where ESR cannot occur. Per-latent calibration is essential.
+  (Rows kept in `data/results/discarded/`.)
+- **Self-judge.** Because the 7B judge does not fit next to 9B, `--judge self` lets the loaded
+  target model score its own *unsteered* outputs (hooks are inactive outside `generate`). On 9B
+  it takes ~10 s per call at 18.1 GB peak and gave sensible scores in a spot check. Final metrics
+  are still re-scored offline with the Qwen judge (`05 --judge local --force`) so all models
+  share one judge. Concreteness is pre-rated with `scripts/rate_concreteness.py`.
+- **Running (detached, ~4.5 h):** 9B calibrated plain run (10 concrete latents, 10-step
+  calibration, 4 trials each), then the meta-prompt run with cached thresholds, then Qwen
+  re-scoring. Log: `data/results/logs/gemma-9b_pipeline.log`.
 
 ## 6. Implementation details that matter
 
