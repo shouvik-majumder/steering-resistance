@@ -123,12 +123,21 @@ def _extract_json_object(text: str) -> dict | None:
         c = c.strip()
         if c.startswith("```"):
             c = re.sub(r"^```(?:json)?|```$", "", c, flags=re.MULTILINE).strip()
-        try:
-            obj = json.loads(c)
-        except json.JSONDecodeError:
-            continue
-        if isinstance(obj, dict) and "attempts" in obj:
-            return obj
+        # Small judges often drop the final closer(s); try a few repairs before giving up.
+        for fix in ("", "}", "]}", "\"}]}", "\"}]}"):
+            try:
+                obj = json.loads(c + fix, strict=False)
+            except json.JSONDecodeError:
+                continue
+            if isinstance(obj, dict) and "attempts" in obj:
+                return obj
+            break
+    # Last resort: pull ("attempt_text", score) pairs out of the text with a regex.
+    pairs = re.findall(r'"attempt_text"\s*:\s*"((?:[^"\\]|\\.)*)"\s*,\s*"score"\s*:\s*(-?\d+(?:\.\d+)?)', text, re.DOTALL)
+    if pairs:
+        return {"attempts": [{"attempt_text": t.encode().decode("unicode_escape", "ignore"), "score": float(s)} for t, s in pairs]}
+    if re.search(r'"attempts"\s*:\s*\[\s*\]', text):
+        return {"attempts": []}
     return None
 
 
@@ -198,6 +207,7 @@ class _LLMJudge:
     name = "llm"
     extra_instructions = ""
     gate_segmentation = False
+    wrap_response = False  # put the response in <response> tags (helps small judges)
 
     def _complete(self, system: str, user: str) -> str:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -205,8 +215,9 @@ class _LLMJudge:
     def grade(self, prompt: str, response: str, feature_label: str) -> JudgeResult:
         import time
 
+        resp_block = f"\n<response>\n{response}\n</response>\n" if self.wrap_response else f" {response}\n"
         user = (f"{INSTRUCTIONS}{self.extra_instructions}\n\n"
-                f"Prompt: {prompt}\nResponse: {response}\nUnrelated feature: {feature_label}")
+                f"Prompt: {prompt}\nResponse:{resp_block}Unrelated feature: {feature_label}")
         t0 = time.perf_counter()
         try:
             raw = self._complete(SYSTEM_PROMPT, user)
@@ -255,6 +266,7 @@ class LocalJudge(_LLMJudge):
 
     extra_instructions = LOCAL_EXTRA_INSTRUCTIONS
     gate_segmentation = True
+    wrap_response = True
 
     def __init__(self, model_id: str = DEFAULT_LOCAL_JUDGE, device: str = "cuda", max_new_tokens: int = 1024) -> None:
         import torch
