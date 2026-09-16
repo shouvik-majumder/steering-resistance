@@ -56,7 +56,8 @@ def main() -> None:
             if res.error:
                 print(f"[judge error] {res.error}")
             else:
-                print(f"[judge] attempts={len(res.attempts)} scores={[a.score for a in res.attempts]}")
+                raw = f" (raw {res.n_attempts_raw})" if res.n_attempts_raw is not None else ""
+                print(f"[judge {res.seconds:.0f}s] attempts={len(res.attempts)}{raw} scores={[a.score for a in res.attempts]}")
     print(engine.vram_report())
 
 

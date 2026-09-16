@@ -23,6 +23,15 @@ os.environ.setdefault("HF_HUB_DISABLE_SYMLINKS_WARNING", "1")
 for _sub in ("labels", "thresholds", "results", "detectors", "cache"):
     (DATA / _sub).mkdir(parents=True, exist_ok=True)
 
+# Windows consoles default to cp1252; steered outputs contain arbitrary Unicode.
+import sys as _sys  # noqa: E402
+
+for _stream in (_sys.stdout, _sys.stderr):
+    try:
+        _stream.reconfigure(encoding="utf-8", errors="replace")
+    except (AttributeError, ValueError):
+        pass
+
 
 @dataclass(frozen=True)
 class ModelSpec:
@@ -96,10 +105,12 @@ class ExperimentConfig:
     threshold_samples_per_trial: int = 1
     # Boost is expressed in units of the median residual-stream norm at the steering layer
     # (see SteeringEngine.unit_scale), so 1.0 == "add a vector as long as the residual itself".
+    # Observed on Gemma-2-2B: 0.25 on-topic, 0.5 derailed, 0.75 fully off-topic, 1.0 degenerate,
+    # so the 30/100 threshold sits around 0.4-0.6.
     threshold_lower: float = 0.0
-    threshold_upper: float = 5.0
-    threshold_prior_mean: float = 1.0
-    threshold_prior_std: float = 0.34
+    threshold_upper: float = 3.0
+    threshold_prior_mean: float = 0.6
+    threshold_prior_std: float = 0.3
 
     # Latent sampling
     n_latents: int = 80

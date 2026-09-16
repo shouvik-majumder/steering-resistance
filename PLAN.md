@@ -114,13 +114,19 @@ D:\dev\ESR\
   data/  labels/ thresholds/ results/ detectors/ cache/   (git-ignored except labels)
 ```
 
-## Status (2026-09-15)
+## Status (2026-09-16)
 
-Done: environment, labels, all modules and scripts written; SAE loads on the GPU
-(`blocks.16.hook_resid_post`, JumpReLU, 16384 x 2304, unit-norm decoder rows); judge parser
-and metrics unit-checked. Not yet run: anything that needs the gated Gemma weights (HF token)
-or the judge (Anthropic key). First real run: `scripts/00_smoke_test.py` then
-`scripts/01_steer_demo.py`.
+- Smoke test on Gemma-2-2B-it passed: hook output equals `hidden_states[17]` exactly, SAE
+  explained variance 0.80 with mean L0 92, unsteered generation coherent at ~15 tok/s (eager
+  attention, bf16, 5.2 GB VRAM). Median residual norm at layer 16 is 319 (the `unit_scale`).
+- First boost sweep (latent 8747 "food recipes and dishes" x "Explain how to calculate
+  probability", 300 tokens): 0.25 on-topic; 0.5 derails into a cookie recipe framed as
+  probability; 0.75 "A Simple and Deliciously Adaptable Recipe for Probability"; 1.0 degenerate
+  repetition. This is the paper's Fig. 3 regime, so the 30/100 threshold is ~0.4-0.6 in
+  unit-scale units and the calibration prior was moved to N(0.6, 0.3) on [0, 3].
+- No explicit self-correction seen yet (expected: 2B is 0.1% in the paper).
+- Next: local-judge check, then a small calibrated run (`03_run_esr.py --n-latents 10
+  --trials-per-latent 5`) and the `--meta-prompt` variant.
 
 ## 6. Implementation details that matter
 

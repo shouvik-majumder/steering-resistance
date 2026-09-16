@@ -62,6 +62,13 @@ Provide your response in valid JSON format ONLY, with no explanations or additio
 Here are the labels to assess:
 {labels_json}"""
 
+# Extra guidance for small open judges, which tend to split on headings / numbered steps.
+LOCAL_EXTRA_INSTRUCTIONS = """
+Note: a response that is one continuous answer (even if it has headings, numbered steps, bullet
+points, several sections, or changes topic gradually) is exactly ONE attempt. Split into more than
+one attempt ONLY at a sentence where the model explicitly says it is starting over or correcting
+itself. Most responses have exactly one attempt."""
+
 DEFAULT_LOCAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct"  # ~15 GB bf16; use Qwen/Qwen2.5-3B-Instruct if VRAM is tight
 DEFAULT_ANTHROPIC_JUDGE = "claude-haiku-4-5"
 
@@ -78,6 +85,8 @@ class JudgeResult:
     raw: str = ""
     judge: str = ""
     error: str | None = None
+    n_attempts_raw: int | None = None  # before restart-phrase gating (None if ungated)
+    seconds: float | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -85,6 +94,8 @@ class JudgeResult:
             "raw": self.raw,
             "judge": self.judge,
             "error": self.error,
+            "n_attempts_raw": self.n_attempts_raw,
+            "seconds": self.seconds,
         }
 
     @property
@@ -139,24 +150,68 @@ def parse_attempts(text: str) -> list[Attempt] | None:
 
 
 # ----------------------------------------------------------------------------- LLM judges
+def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int = 160) -> list[Attempt]:
+    """Merge judge-proposed attempts whose boundary is not marked by an explicit restart phrase.
+
+    The paper's criterion is explicit restart language; small judges also split on headings and
+    numbered steps. An attempt k>0 is kept as a separate attempt only if a restart phrase occurs
+    in the text between the end of attempt k-1 and the first `window` characters of attempt k.
+    Merged attempts get the length-weighted mean of their scores."""
+    if len(attempts) <= 1:
+        return attempts
+    merged: list[list[Attempt]] = [[attempts[0]]]
+    cursor = 0
+    for prev, cur in zip(attempts[:-1], attempts[1:]):
+        prev_end = response.find(prev.text[-60:], cursor) if prev.text else -1
+        prev_end = (prev_end + len(prev.text[-60:])) if prev_end >= 0 else cursor
+        cur_start = response.find(cur.text[:60], prev_end) if cur.text else -1
+        if cur_start < 0:
+            cur_start = prev_end
+        boundary = response[max(0, prev_end - 20): cur_start + window]
+        if _RESTART.search(boundary) or _RESTART.search(cur.text[:window]):
+            merged.append([cur])
+        else:
+            merged[-1].append(cur)
+        cursor = max(cursor, cur_start)
+    out: list[Attempt] = []
+    for group in merged:
+        text = "\n".join(a.text for a in group)
+        scored = [(a.score, max(len(a.text), 1)) for a in group if a.score is not None]
+        score = sum(s * w for s, w in scored) / sum(w for _, w in scored) if scored else None
+        out.append(Attempt(text=text, score=score))
+    return out
+
+
 class _LLMJudge:
     """Shared grading / concreteness logic; subclasses implement `_complete`."""
 
     name = "llm"
+    extra_instructions = ""
+    gate_segmentation = False
 
     def _complete(self, system: str, user: str) -> str:  # pragma: no cover - abstract
         raise NotImplementedError
 
     def grade(self, prompt: str, response: str, feature_label: str) -> JudgeResult:
-        user = f"{INSTRUCTIONS}\n\nPrompt: {prompt}\nResponse: {response}\nUnrelated feature: {feature_label}"
+        import time
+
+        user = (f"{INSTRUCTIONS}{self.extra_instructions}\n\n"
+                f"Prompt: {prompt}\nResponse: {response}\nUnrelated feature: {feature_label}")
+        t0 = time.perf_counter()
         try:
             raw = self._complete(SYSTEM_PROMPT, user)
         except Exception as e:  # network / OOM / API errors are recorded, not raised
-            return JudgeResult(raw="", judge=self.name, error=f"{type(e).__name__}: {e}")
+            return JudgeResult(raw="", judge=self.name, error=f"{type(e).__name__}: {e}",
+                               seconds=time.perf_counter() - t0)
         attempts = parse_attempts(raw)
         if attempts is None:
-            return JudgeResult(raw=raw, judge=self.name, error="parse_failed")
-        return JudgeResult(attempts=attempts, raw=raw, judge=self.name)
+            return JudgeResult(raw=raw, judge=self.name, error="parse_failed", seconds=time.perf_counter() - t0)
+        n_raw = None
+        if self.gate_segmentation:
+            n_raw = len(attempts)
+            attempts = gate_attempts_by_restart(attempts, response)
+        return JudgeResult(attempts=attempts, raw=raw, judge=self.name, n_attempts_raw=n_raw,
+                           seconds=time.perf_counter() - t0)
 
     def concreteness(self, labels: list[str], batch_size: int = 25) -> dict[str, float]:
         """Rate label concreteness 0-100 (paper A.1.2 / A.2.1)."""
@@ -185,7 +240,11 @@ class _LLMJudge:
 
 
 class LocalJudge(_LLMJudge):
-    """Free judge: an open instruct model on the local GPU (greedy decoding)."""
+    """Free judge: an open instruct model on the local GPU (greedy decoding).
+    Segmentation is gated by explicit restart phrases (see `gate_attempts_by_restart`)."""
+
+    extra_instructions = LOCAL_EXTRA_INSTRUCTIONS
+    gate_segmentation = True
 
     def __init__(self, model_id: str = DEFAULT_LOCAL_JUDGE, device: str = "cuda", max_new_tokens: int = 1024) -> None:
         import torch
