@@ -160,6 +160,14 @@ D:\dev\ESR\
   it takes ~10 s per call at 18.1 GB peak and gave sensible scores in a spot check. Final metrics
   are still re-scored offline with the Qwen judge (`05 --judge local --force`) so all models
   share one judge. Concreteness is pre-rated with `scripts/rate_concreteness.py`.
+- **First genuine self-correction (Gemma-2-9B, plain steered run, latent 9465 "numbers and
+  ranges", boost 1.17, prompt "How do you make a perfect omelette?"):** after a recipe full of
+  absurd quantities the model writes "Seriously, this is ridiculous. Let's get you a recipe that
+  will work!", produces a briefly better attempt (judge 60), degrades, then "Let me try again:"
+  and degrades further. Under the paper's metrics: multi-attempt = yes, improvement = no (last
+  attempt scores below the first), so it is not an ESR success, matching the paper's point that
+  small models attempt but rarely succeed. It exposed two gate bugs (regex missed the first
+  restart phrasing; one phrase justified three boundaries), both fixed.
 - **Running (detached, ~4.5 h):** 9B calibrated plain run (10 concrete latents, 10-step
   calibration, 4 trials each), then the meta-prompt run with cached thresholds, then Qwen
   re-scoring. Log: `data/results/logs/gemma-9b_pipeline.log`.
