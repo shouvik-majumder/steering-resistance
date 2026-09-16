@@ -176,7 +176,7 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
     Merged attempts get the length-weighted mean of their scores."""
     if len(attempts) <= 1:
         return attempts
-    n_phrases = len(_RESTART.findall(response))
+    n_phrases = len(restart_clusters(response))
     if n_phrases == 0:
         # No explicit restart anywhere: by the paper's definition this is exactly one attempt.
         # (Small judges sometimes invent a cleaned-up "second attempt" that is not in the text.)
@@ -378,6 +378,16 @@ class RegexJudge:
 
 def restart_phrases(response: str) -> list[str]:
     return [m.group(0) for m in _RESTART.finditer(response)]
+
+
+def restart_clusters(response: str, gap: int = 120) -> list[int]:
+    """Start offsets of distinct self-correction events: restart phrases closer than `gap`
+    characters ("Wait, I made a mistake! Let me start over.") count as one event."""
+    starts: list[int] = []
+    for m in _RESTART.finditer(response):
+        if not starts or m.start() - starts[-1] > gap:
+            starts.append(m.start())
+    return starts
 
 
 def make_judge(kind: str, model: str | None = None) -> Judge:
