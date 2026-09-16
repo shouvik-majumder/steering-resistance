@@ -53,6 +53,10 @@ def relevance_exclusion(engine, prompts: list[str], top_k: int = 100, force: boo
     return exclude
 
 
+def concreteness_cache_path(model_key: str) -> Path:
+    return DATA / "cache" / f"{model_key}_concreteness.json"
+
+
 def sample_latents(
     engine,
     prompts: list[str],
@@ -81,6 +85,20 @@ def sample_latents(
     chosen: list[int] = []
     concreteness: dict[int, float] = {}
     tried: set[int] = set()
+
+    # Pre-rated concreteness (scripts/rate_concreteness.py) lets us filter without a live judge.
+    cached = read_json(concreteness_cache_path(engine.spec.key)) or {}
+    if concreteness_judge is None and cached:
+        rated = [int(k) for k, v in cached.items() if v["rating"] >= min_concreteness and int(k) in set(universe)]
+        rng.shuffle(rated)
+        chosen = rated[:n]
+        concreteness = {int(k): v["rating"] for k, v in cached.items()}
+        if len(chosen) < n:
+            print(f"warning: only {len(chosen)} pre-rated concrete latents; filling with unrated ones")
+            rest = [i for i in universe if i not in set(chosen) and str(i) not in cached]
+            chosen += rng.sample(rest, n - len(chosen))
+        tried = set(universe)  # skip the sampling loop below
+
     while len(chosen) < n and len(tried) < len(universe):
         need = (n - len(chosen)) * pool_multiplier
         pool = [i for i in rng.sample(universe, min(len(universe), need + len(tried))) if i not in tried][:need]
