@@ -5,15 +5,18 @@ Replication of *Endogenous Resistance to Activation Steering in Language Models*
 Gemma-2-2B/9B-it, Gemma Scope SAEs and plain HF `transformers` hooks. See [PLAN.md](PLAN.md)
 for the design and the honest scope discussion.
 
-## Setup (Windows, PowerShell)
+## Setup (Windows, PowerShell, conda)
 
 ```powershell
 cd D:\dev\ESR
-# environment was created with: python -m uv venv --python 3.12 .venv
-#   python -m uv pip install --python .venv\Scripts\python.exe --torch-backend=cu128 -r <deps in pyproject.toml>
-.\.venv\Scripts\Activate.ps1
-Copy-Item .env.example .env      # then fill HF_TOKEN and ANTHROPIC_API_KEY
+conda activate esr               # created with: conda create -n esr python=3.12
+                                 # + pip install torch --index-url https://download.pytorch.org/whl/cu128
+                                 # + pip install sae-lens transformers accelerate anthropic python-dotenv numpy scipy pandas matplotlib seaborn tqdm huggingface_hub
+Copy-Item .env.example .env      # then fill HF_TOKEN (ANTHROPIC_API_KEY is optional)
+python scripts\00_smoke_test.py
 ```
+
+To recreate the env from scratch see `environment.yml`.
 
 Gemma weights are gated: accept the license at https://huggingface.co/google/gemma-2-2b-it
 with the account that owns `HF_TOKEN`.

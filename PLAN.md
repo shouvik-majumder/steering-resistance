@@ -72,15 +72,16 @@ Rough throughput: HF generate on a 3090, 512 new tokens, 2B bf16 ~ 8-12 s/trial,
 s/trial. 1,000 trials on 2B ~ 3 h; on 9B ~ 8 h. Judge cost with Claude Haiku 4.5 ~ $3-5 per
 1,000 trials.
 
-## 4. Environment (done / in progress)
+## 4. Environment (done)
 
-- `uv` (installed with `pip install --user uv`, run as `python -m uv`)
-- `.venv` in `D:\dev\ESR`, Python 3.12.14
+- conda env `esr` (Anaconda3 already on the machine), Python 3.12.14. A uv venv was tried
+  first but its Windows launcher failed inside the user's PowerShell profile.
 - `torch` cu128 wheel (driver supports CUDA 13.0), `sae-lens`, `transformers`, `accelerate`,
   `anthropic`, `python-dotenv`, `numpy`, `scipy`, `pandas`, `matplotlib`, `seaborn`, `tqdm`
-- `.env` (git-ignored): `HF_TOKEN` (Gemma weights are gated: accept the license on HF first),
-  `ANTHROPIC_API_KEY` (judge). Optional later: `OPENROUTER_API_KEY` for cross-judge checks.
-- Model/SAE cache on `D:` (`HF_HOME=D:\dev\ESR\.hf_cache`) so the 3.7 TB drive holds the weights.
+- `.env` (git-ignored): `HF_TOKEN` (Gemma weights are gated: license accepted, token verified).
+  `ANTHROPIC_API_KEY` optional; the default judge is local and free.
+- Model/SAE cache on `D:` (`HF_HOME=D:\dev\ESR\.hf_cache`): Gemma-2-2B-it, the layer-16 SAE
+  and the Qwen2.5-7B-Instruct judge are already downloaded.
 
 ## 5. Project layout
 
