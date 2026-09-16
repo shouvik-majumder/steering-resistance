@@ -68,7 +68,9 @@ Note: a response that is one continuous answer (even if it has headings, numbere
 points, several sections, or changes topic gradually) is exactly ONE attempt. Split into more than
 one attempt ONLY at a sentence where the model explicitly says it is starting over or correcting
 itself. Most responses have exactly one attempt. A response that is entirely off-topic, derailed
-or nonsensical is STILL one attempt (give it a low score); never return an empty attempts list for it."""
+or nonsensical is STILL one attempt (give it a low score); never return an empty attempts list for it.
+For `attempt_text`, copy only the first 15 words of the attempt exactly as written (no quotes
+inside), not the whole attempt."""
 
 DEFAULT_LOCAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct"  # ~15 GB bf16; use Qwen/Qwen2.5-3B-Instruct if VRAM is tight
 DEFAULT_ANTHROPIC_JUDGE = "claude-haiku-4-5"
@@ -139,6 +141,11 @@ def _extract_json_object(text: str) -> dict | None:
         return {"attempts": [{"attempt_text": t.encode().decode("unicode_escape", "ignore"), "score": float(s)} for t, s in pairs]}
     if re.search(r'"attempts"\s*:\s*\[\s*\]', text):
         return {"attempts": []}
+    # attempt_text with unescaped quotes: keep the scores, drop the texts (gating then relies on
+    # restart phrases in the response, which is what the paper's criterion is anyway).
+    scores = re.findall(r'"score"\s*:\s*(-?\d+(?:\.\d+)?)', text)
+    if scores:
+        return {"attempts": [{"attempt_text": "", "score": float(s)} for s in scores]}
     return None
 
 
@@ -180,19 +187,20 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
         return [Attempt(text=response, score=score)]
     merged: list[list[Attempt]] = [[attempts[0]]]
     cursor = 0
-    for prev, cur in zip(attempts[:-1], attempts[1:]):
-        prev_end = response.find(prev.text[-60:], cursor) if prev.text else -1
-        prev_end = (prev_end + len(prev.text[-60:])) if prev_end >= 0 else cursor
-        cur_start = response.find(cur.text[:60], prev_end) if cur.text else -1
+    for cur in attempts[1:]:
+        # Locate where this attempt starts in the response (judges may quote or paraphrase).
+        probe = cur.text.strip()[:60]
+        cur_start = response.find(probe, cursor) if len(probe) >= 12 else -1
         if cur_start < 0:
-            cur_start = prev_end
-        boundary = response[max(0, prev_end - 20): cur_start + window]
+            merged[-1].append(cur)  # cannot locate the boundary -> not a verified restart
+            continue
         # Only the response text counts: judges can fabricate restart phrases inside attempt_text.
+        boundary = response[max(0, cur_start - 200): cur_start + window]
         if _RESTART.search(boundary):
             merged.append([cur])
         else:
             merged[-1].append(cur)
-        cursor = max(cursor, cur_start)
+        cursor = cur_start + 1
     out: list[Attempt] = []
     for group in merged:
         text = "\n".join(a.text for a in group)
