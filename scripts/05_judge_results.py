@@ -25,7 +25,11 @@ def main() -> None:
     ap = base_parser("Judge saved results", default_judge="local")
     ap.add_argument("--results", required=True, help="Path or glob of results .jsonl files")
     ap.add_argument("--force", action="store_true", help="Re-grade rows that already have scores")
+    ap.add_argument("--regate-only", action="store_true",
+                    help="No model: re-parse the stored raw judge output and re-apply restart-phrase gating")
     args = ap.parse_args()
+    if args.regate_only:
+        return regate(sorted(glob.glob(args.results)))
     if args.judge == "none":
         ap.error("pick a judge")
     judge = make_judge_or_none(args)
@@ -46,6 +50,32 @@ def main() -> None:
             if (i + 1) % 20 == 0:
                 _write(path, rows)
         _write(path, rows)
+        print(format_summary(path.stem, summarize(rows)))
+
+
+def regate(files: list[str]) -> None:
+    from dataclasses import asdict
+
+    from esr.judge import gate_attempts_by_restart, parse_attempts
+
+    for f in files:
+        path = Path(f)
+        rows = list(read_jsonl(path))
+        changed = 0
+        for r in rows:
+            j = r.get("judge")
+            if not j or j.get("error") or not j.get("raw"):
+                continue
+            attempts = parse_attempts(j["raw"])
+            if attempts is None:
+                continue
+            gated = gate_attempts_by_restart(attempts, r["response"])
+            new = [asdict(a) for a in gated]
+            if new != j["attempts"] or j.get("n_attempts_raw") != len(attempts):
+                changed += 1
+            j["attempts"], j["n_attempts_raw"] = new, len(attempts)
+        _write(path, rows)
+        print(f"{path.name}: re-gated {len(rows)} rows, {changed} changed")
         print(format_summary(path.stem, summarize(rows)))
 
 

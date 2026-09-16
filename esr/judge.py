@@ -159,6 +159,15 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
     Merged attempts get the length-weighted mean of their scores."""
     if len(attempts) <= 1:
         return attempts
+    n_phrases = len(_RESTART.findall(response))
+    if n_phrases == 0:
+        # No explicit restart anywhere: by the paper's definition this is exactly one attempt.
+        # (Small judges sometimes invent a cleaned-up "second attempt" that is not in the text.)
+        scored = [(a.score, max(len(a.text), 1)) for a in attempts if a.score is not None]
+        # Only the first attempt's text is trustworthy as a description of what was generated.
+        score = attempts[0].score if attempts[0].score is not None else (
+            sum(s * w for s, w in scored) / sum(w for _, w in scored) if scored else None)
+        return [Attempt(text=response, score=score)]
     merged: list[list[Attempt]] = [[attempts[0]]]
     cursor = 0
     for prev, cur in zip(attempts[:-1], attempts[1:]):
@@ -168,7 +177,8 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
         if cur_start < 0:
             cur_start = prev_end
         boundary = response[max(0, prev_end - 20): cur_start + window]
-        if _RESTART.search(boundary) or _RESTART.search(cur.text[:window]):
+        # Only the response text counts: judges can fabricate restart phrases inside attempt_text.
+        if _RESTART.search(boundary):
             merged.append([cur])
         else:
             merged[-1].append(cur)
