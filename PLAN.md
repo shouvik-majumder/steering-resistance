@@ -142,8 +142,18 @@ D:\dev\ESR\
   attempts, headings split into attempts, a truncated JSON block). Fixes: restart phrases must
   occur in the *response text*; truncated-JSON repair; response wrapped in tags; explicit
   "nonsense is still one attempt". `05_judge_results.py --regate-only` re-applies gating offline.
-- Running: no-steer baseline (10 trials) then `--meta-prompt` (6 latents x 5 trials, cached
-  thresholds) on 2B. Gemma-2-9B-it downloading for generate-then-judge runs.
+- **Controls on 2B (done):** no-steer baseline 10 trials -> first-attempt 98.5, 0 multi-attempt
+  (paper Fig. 14/15). Meta-prompt variant (same 6 latents, cached thresholds, 30 trials) ->
+  first-attempt 45.7, 0 multi-attempt. So on 2B: 0/58 steered trials with an explicit restart,
+  upper 95% bound ~6%; the paper's 2B estimate (0.1%, ~1% meta-prompted) is not distinguishable
+  from zero at this sample size, and ~1,000 trials (9 GPU-hours) would be needed to see it.
+- **Gemma-2-9B-it smoke test:** 17.7 GB VRAM, 9.4 tok/s (~55 s per 512-token trial), hook exact,
+  layer-26 median resid norm 422, SAE explained variance only 0.61 (L0 149): the pretrained
+  Gemma Scope SAE fits the -it model worse at this depth. Steering at boost 1.0 is milder than
+  on 2B, so the fixed sweep uses 0.6 / 0.9 / 1.2.
+- **Running (detached, ~4.5 h):** 9B meta-prompt sweep (10 latents x 3 boosts x 4 trials),
+  then the same without meta-prompt, then `05_judge_results.py --judge local` on both files.
+  Log: `data/results/logs/gemma-9b_pipeline.log`.
 
 ## 6. Implementation details that matter
 
