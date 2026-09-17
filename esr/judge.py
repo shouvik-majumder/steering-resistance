@@ -255,7 +255,13 @@ class _LLMJudge:
             arr = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(0))
         if not isinstance(arr, list):
             return [], []
-        return locate_sentences(response, [a for a in arr if isinstance(a, str)])
+        sents = [a for a in arr if isinstance(a, str)]
+        # Small judges sometimes copy out every sentence. A real restart list is short, and each
+        # sentence must contain some self-correction cue; otherwise treat the pass as failed.
+        if len(sents) > 4:
+            return [], []
+        sents = [a for a in sents if _RESTART_CUE.search(a)]
+        return locate_sentences(response, sents)
 
     def _complete(self, system: str, user: str) -> str:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -439,6 +445,17 @@ _RESTART = re.compile(
     r"|back\s+to\s+(the|your)\s+(original\s+|actual\s+|real\s+)?(question|topic|task|issue|methods?)"
     r"|what\s+was\s+i\s+(doing|saying)|got\s+sidetracked|off\s+topic\s+again|too\s+many\s+diversions|(i'?m|i\s+am)\s+getting\s+off\s+track"
     r")",
+    re.IGNORECASE,
+)
+
+
+# Loose lexicon a judge-listed "restart sentence" must touch (self-reference to erring/restarting).
+_RESTART_CUE = re.compile(
+    r"\b(wait|sorry|apolog\w*|mistake|wrong|incorrect|off[- ]topic|sidetrack\w*|start(ing)?\s+(over|again|fresh)|"
+    r"try(ing)?\s+again|let\s+me|let'?s|actually|correct\w*|back\s+(to|on)|confus\w*|ridiculous|nonsense|"
+    r"not\s+(right|relevant|what|helpful)|redo|rewrite|scratch\s+that|never\s+mind|diversion\w*|"
+    r"got\s+carried|derail\w*|what\s+was\s+i|your\s+question|the\s+question|on\s+track|ignore\s+(that|the\s+above)|"
+    r"disregard|forgot|forget\s+(that|about)|instead)\b",
     re.IGNORECASE,
 )
 
