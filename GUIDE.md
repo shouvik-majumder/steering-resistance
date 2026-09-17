@@ -242,6 +242,15 @@ each answer and scores it, so we can count how often this happens.
   so latents with naturally large activations do not dominate a plain sum.
 - **Paired design**: comparing conditions on the same seeds, so random variation between seeds
   cancels out and smaller effects become detectable.
+- **Prefill / prefilling** (`09_prefill_detection.py`): putting text into the model's own turn
+  as if it had already written it, then letting it continue. We prefill the first ~1000
+  characters of a saved off-topic answer into an *unsteered* model and watch whether it
+  notices and restarts. The paper found this happens 7 to 13% of the time, far more often than
+  under live steering, which makes it the place where an ablation effect can actually be measured.
+- **Two-pass judge**: the judge is first asked only to copy out, word for word, every sentence
+  where the model stops or starts over; we keep only sentences that really occur in the text
+  (judges invent quotes), and use them as extra restart anchors. Then the normal scoring pass
+  runs. The `restart-any` column counts responses with a regex hit *or* a verified judge sentence.
 
 ## 9. Engineering and workflow words
 

@@ -280,6 +280,18 @@ D:\dev\ESR\
   claim (detector latents fire on off-topic text, ahead of restarts) reproduces, with the caveat
   that it is explained by off-topicness alone.
 
+## Phase C, second attempt: prefill-detection with paired ablation (2026-09-17)
+
+Rationale: the paper's own prefilling control (Sec. 3.6) shows detection is text-conditioned and
+5-10x more frequent than under live steering. So: take the 288 saved off-topic 9B responses
+(first-attempt <= 30, no restart in the prefix), cut ~1000-char prefixes at sentence boundaries,
+prefill each as the assistant's turn and continue *unsteered* under three seed-paired conditions:
+none / 26 detector latents ablated / 26 random matched latents ablated. Outcome = restart
+language in the continuation (regex + two-pass-judge verified sentences).
+Judge upgrade: `LocalJudge.two_pass` first lists verbatim restart sentences (kept only if found
+in the text), used as extra gate anchors and reported as `restart-any`.
+Pilot: 10 prefixes x 3 conditions. Full run: 200 x 3 = 600 generations (~9 h).
+
 ## What would move this further
 
 1. A judge with better recall of fragmentary restarts (the two judges agreed on 2 of 5 flagged
