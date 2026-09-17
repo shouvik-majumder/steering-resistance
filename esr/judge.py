@@ -256,6 +256,12 @@ class _LLMJudge:
         if self.gate_segmentation:
             n_raw = len(attempts)
             attempts = gate_attempts_by_restart(attempts, response)
+        if not attempts and len(response.strip()) >= 200:
+            # Paper protocol: "even meaningless nonsense should be considered an attempt"; an
+            # empty list is only for clarifying questions. Small judges return [] for fully
+            # derailed answers, which would silently drop the most-steered trials.
+            attempts = [Attempt(text=response, score=0.0)]
+            n_raw = 0 if n_raw is None else n_raw
         return JudgeResult(attempts=attempts, raw=raw, judge=self.name, n_attempts_raw=n_raw,
                            seconds=time.perf_counter() - t0)
 
