@@ -209,6 +209,12 @@ D:\dev\ESR\
   "gets me off topic again", "sorry, too many diversions, back to the actual methods", "back to
   the original question". Self-judge scores 20.6 -> 0 -> 27.3: multi-attempt and (marginally)
   improved, i.e. an ESR success by the paper's definition. Regex cues extended accordingly.
+- **Overnight episode 3 (latent 2398 "improvised fixes and creations", boost 0.60, "Explain how
+  to properly vacuum a room", meta-prompt):** after a list of MacGyver contraptions the model
+  writes "I apologize for the household items listed above. It seems I got carried away ... and
+  forgot about a simple way to vacuum a room! Let me try again with just using a vacuum
+  cleaner: Back to the basics:" and immediately relapses (pennies in a ziplock, socks with
+  rice). Self-judge 0 -> 25. Three episodes on three different latents by latent 13/20.
 - **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
   data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
   `--random-control 1` on the same 20 latents; compare multi-attempt rates.
