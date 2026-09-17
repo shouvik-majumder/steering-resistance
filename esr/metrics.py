@@ -52,8 +52,12 @@ def _sem(xs):
 
 
 def summarize(rows: list[dict]) -> dict:
+    from .judge import restart_clusters
+
     outcomes = [o for o in (trial_outcome(r) for r in rows) if o is not None]
     n = len(outcomes)
+    # Judge-independent "noticing" measure: explicit restart language anywhere in the response.
+    n_restart_lang = sum(1 for r in rows if r.get("response") and restart_clusters(r["response"]))
     n_multi = sum(o["multi_attempt"] for o in outcomes)
     n_improved = sum(o["improved"] for o in outcomes)
     n_esr = sum(o["esr"] for o in outcomes)
@@ -66,6 +70,7 @@ def summarize(rows: list[dict]) -> dict:
         "multi_attempt": wilson(n_multi, n),
         "conditional_improvement": wilson(n_improved, n_multi),
         "esr": wilson(n_esr, n),
+        "restart_language": wilson(n_restart_lang, len(rows)),
         "first_attempt_score_mean": _mean(first_scores),
         "first_attempt_score_sem": _sem(first_scores),
         "score_delta_mean": _mean(deltas),
@@ -88,5 +93,5 @@ def format_summary(name: str, s: dict) -> str:
         f"{name:<32} n={s['n_scored']:<5} (excl {s['n_excluded']})  "
         f"first={s['first_attempt_score_mean']:5.1f}  "
         f"multi={pct(s['multi_attempt'])}  improve|multi={pct(s['conditional_improvement'])}  "
-        f"ESR={pct(s['esr'])}"
+        f"ESR={pct(s['esr'])}  restart-lang={pct(s['restart_language'])}"
     )

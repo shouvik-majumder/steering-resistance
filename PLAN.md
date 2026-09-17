@@ -222,6 +222,30 @@ D:\dev\ESR\
   try again." and fails again (0 -> 0), adding "I would need to recognize and respond to certain
   types of phrasing to successfully avoid deviations." Noticing without recovery. Four episodes
   on four latents by latent 14/20.
+- **Overnight run finished 2026-09-17 (~12 h GPU): 20 latents x 20 trials, 9B, meta-prompt.**
+  Qwen judge, final gate, no exclusions:
+
+  | Run | Scored | First-attempt | Restart language (regex) | Multi-attempt (judge) | ESR |
+  |---|---|---|---|---|---|
+  | 9B steered + meta | 440 | 36.2 | 1.4% (6/440) [0.6, 2.9] | 0.7% (3/440) | 0.0% [0, 0.9] |
+  | 9B steered | 38 | 28.9 | 2.5% (1/40) | 2.6% (1/38) | 2.6% (1/38) |
+  | 2B all steered | 58 | 47 | 0% | 0% | 0% |
+
+  Paper's 9B: 1.0% multi-attempt / 0.5% ESR (plain), higher with meta-prompt. We land at the
+  low end but inside the intervals. The judge-independent "restart language" rate (1.4%) is the
+  most trustworthy noticing measure: the self-judge flagged 4 episodes, Qwen 3, with only 2 in
+  common (Qwen read the 7-restart "irregular shapes" response as a single derailed attempt; the
+  self-judge missed the omelette one). Cross-judge disagreement on marginal cases is expected
+  (paper: 90-96% agreement) but at n~5 it flips the improvement rate between 0% and 50%.
+- **Statistical reality for Phase C.** A 25% reduction in a ~1.4% rate (6 -> 4.5 events per 440
+  trials) is undetectable at this scale; the paper needed ~4,900 trials per arm on a 7.4% base
+  rate. Full-protocol ablation vs random-control on this GPU would need roughly a week per arm.
+- **Cheaper, higher-power design: hot-spot replay.** The 6 configurations (prompt, latent,
+  boost) that produced restart language have an elevated restart probability. Re-sample each
+  with ~30 fresh seeds under three conditions (no ablation / detector ablation / random-latent
+  ablation), compare restart-language and multi-attempt rates in a paired design. ~540
+  generations, ~9 h. This tests the paper's causal claim (detectors -> noticing) where the
+  signal is, at the cost of generalising only over those configurations.
 - **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
   data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
   `--random-control 1` on the same 20 latents; compare multi-attempt rates.
