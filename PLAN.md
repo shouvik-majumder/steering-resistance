@@ -246,43 +246,44 @@ D:\dev\ESR\
   ablation), compare restart-language and multi-attempt rates in a paired design. ~540
   generations, ~9 h. This tests the paper's causal claim (detectors -> noticing) where the
   signal is, at the cost of generalising only over those configurations.
-- **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
-  data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
-  `--random-control 1` on the same 20 latents; compare multi-attempt rates.
-  Cheap targeted probe: replay the omelette hot-spot trial (latent 9465) across seeds with and
-  without ablation.
+## Phase C results (2026-09-17)
 
-## 6. Implementation details that matter
+- **Hot-spot replay pilot (`07_hotspot_replay.py`, 30 generations):** the strongest restart
+  configuration ("catch blocks" x irregular shapes, boost 0.76) replayed with 10 fresh seeds
+  under steering-only / detector-ablation / random-ablation produced **0 restarts in all 30**.
+  The original restart was a rare sampling event, not a property of the configuration, so a
+  paired ablation test has no signal to work with at this scale. Not pursued further.
+  (Incidental: mean first-attempt score 51 steering-only vs 41 with 26 detector latents ablated
+  vs 43 random, n=10 each -- ablating 26 latents may itself degrade answers; too few samples.)
+- **Token-level traces (`08_episode_traces.py`, paper Sec. 3.8 / App. A.4):** the 7 responses
+  with restart language, 15 steered responses of the same latents without restart, and 12
+  unsteered on-topic answers were re-run with their original steering, and the 26 detector
+  latents' summed activation read at every response token (plots in `data/plots/traces/`).
 
-- **Hook point.** Gemma Scope residual SAEs are trained on `blocks.L.hook_resid_post` = output of
-  decoder layer `L`. In HF that is `model.model.layers[L]` forward output `[0]`. Steering adds
-  `b * W_dec[k]` (bf16 cast) to every position of that tensor; during incremental decoding the
-  tensor is 1 token wide, so "every generated token" is automatic.
-- **Ablation.** In the same hook, after steering: `f = sae.encode(resid.float())[..., idx]`,
-  `resid -= f @ W_dec[idx]`. Steering hook runs first, then ablation (single hook, fixed order).
-- **Generation.** `model.generate(do_sample=True, temperature=0.6, repetition_penalty=1.1,
-  max_new_tokens=512)`, seeded with `torch.manual_seed`. Gemma-2 needs
-  `attn_implementation="eager"` (soft-capping) and bf16.
-- **Relevance filter.** Precompute SAE activations of each *unsteered* prompt (chat-templated),
-  exclude latents in the top-100 by max activation for any prompt (paper A.1.2).
-- **Concreteness filter.** Judge-scored label concreteness >= 65 (paper uses median); labels
-  come from Neuronpedia for `gemma-2-2b/16-gemmascope-res-16k` and `gemma-2-9b/26-...`.
-- **Threshold finder.** Target normalized score 0.3 (30/100) on first attempt, 20 bisection
-  trials, prior N(1.0, 0.34) on boost in [0, 5] (repo defaults); we will re-scale the search
-  interval per model because raw Gemma Scope decoder norms differ from Goodfire's.
-- **Judge.** System + instruction prompt copied from the paper (App. A.2.1); parse
-  `<json>{"attempts":[...]}</json>`. `RegexJudge` only segments attempts (no scores) for
-  offline smoke tests.
-- **Resumability.** Each trial appended as one JSON line with prompt, latent, boost, seed,
-  response, judge output; reruns skip completed (prompt, latent, seed) keys.
+  | Region | Summed detector activation / token |
+  |---|---|
+  | Unsteered on-topic answers | 5.9 |
+  | Episodes, off-topic region before first restart | 36.4 (**6.1x** unsteered; paper 4.4x) |
+  | Episodes, +/-12 tokens around restarts | 44.3 |
+  | Episodes, after last restart | 51.1 |
+  | Steered responses that never restarted | 41.6 |
 
-## 7. Decisions (2026-09-16)
+  The paper's headline elevation reproduces (6.1x vs 4.4x; per-latent z-score +26 relative to
+  unsteered answers). But the added control shows steered responses that **never** restart are
+  elevated just as much (+34). So these latents track *off-topic / steered content*, not the
+  decision to self-correct, and activation does not decline after our restarts because the
+  corrections failed and the text stayed off-topic. In the 7-restart episode the trace does
+  show the paper's Fig. 7 shape: activation climbs before the first restart, collapses to ~0
+  during the on-topic stretch (tokens 60-160), and climbs again as the model is dragged back.
+- **Conclusion for Phase C:** with ~1% restart rates on Gemma-2-9B and one 24 GB GPU, the causal
+  ablation claim is not testable (a week of GPU per arm for a marginal effect). The correlational
+  claim (detector latents fire on off-topic text, ahead of restarts) reproduces, with the caveat
+  that it is explained by off-topicness alone.
 
-1. **No paid APIs.** Judge = free local open model on the same GPU (`Qwen/Qwen2.5-7B-Instruct`,
-   fallback `Qwen2.5-3B-Instruct`), greedy decoding, same prompt as the paper. Regex judge for
-   smoke tests. Deviation from the paper (Claude Haiku 4.5) to be stated in any write-up; the
-   paper's cross-judge check (App. A.2.2) found even Qwen3-32B ranked models identically.
-2. **Gemma-2-2B first** for pipeline development, then 9B with generate-then-judge (script 05)
-   because 9B + a 7B judge do not fit in 24 GB together.
-3. **Hugging Face:** free account, accept the Gemma license, read token in `.env` (user to do).
-4. **Git:** repository initialised in `D:\dev\ESR`.
+## What would move this further
+
+1. A judge with better recall of fragmentary restarts (the two judges agreed on 2 of 5 flagged
+   episodes) -- e.g. a two-pass judge that first lists restart sentences, then scores.
+2. More episodes per GPU-hour: a stronger meta-prompt or a light fine-tune on synthetic
+   self-corrections (paper Sec. 3.5) would raise the base rate 5-40x and make ablation testable.
+3. Gemma-2-27B in 4-bit (bitsandbytes) fits in 24 GB and had 0.7% ESR in the paper.
