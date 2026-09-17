@@ -472,10 +472,11 @@ _RESTART = re.compile(
 # Loose lexicon a judge-listed "restart sentence" must touch (self-reference to erring/restarting).
 _RESTART_CUE = re.compile(
     r"\b(wait|sorry|apolog\w*|mistake|wrong|incorrect|off[- ]topic|sidetrack\w*|start(ing)?\s+(over|again|fresh)|"
-    r"try(ing)?\s+again|let\s+me|let'?s|actually|correct\w*|back\s+(to|on)|confus\w*|ridiculous|nonsense|"
-    r"not\s+(right|relevant|what|helpful)|redo|rewrite|scratch\s+that|never\s+mind|diversion\w*|"
-    r"got\s+carried|derail\w*|what\s+was\s+i|your\s+question|the\s+question|on\s+track|ignore\s+(that|the\s+above)|"
-    r"disregard|forgot|forget\s+(that|about)|instead)\b",
+    r"try(ing)?\s+(again|that\s+again|this\s+again)|let\s+me\s+(try|start|redo|rewrite|re-?start|correct|rephrase|get\s+back|be\s+serious)|"
+    r"let'?s\s+(try|start|get\s+back|go\s+back|begin\s+again|redo)|correct\s+(myself|that|this|course)|"
+    r"back\s+(to|on)\s+(the|your|track)|confus\w*|ridiculous|nonsense|not\s+(right|relevant|what\s+(you|was)|helpful)|"
+    r"redo|rewrite|scratch\s+that|never\s+mind|diversion\w*|got\s+carried|derail\w*|what\s+was\s+i|"
+    r"ignore\s+(that|the\s+above)|disregard|forgot\s+(about|the|your)|forget\s+(that|about))\b",
     re.IGNORECASE,
 )
 
