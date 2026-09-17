@@ -303,6 +303,15 @@ available on every trial, with the paired difference (ablate - none, random - no
 Also found and fixed: the self-judge's pass-1 copied out every sentence as a "restart";
 listed sentences must now contain a self-correction cue and lists > 4 are discarded.
 
+**Prefill pilot 2 (10 prefixes x 3, continuation relevance):** none 61.5 +/- 13.7, random 63.5
+(paired +2.0 +/- 1.1), detector-ablated 72.5 (paired +11 +/- 10). The measure works (prefixes
+scored ~20 -> continuations ~60-70: silent recovery quantified); the ablation effect is noise at
+n=10 but the error bars imply n=200 resolves a ~10-point paired difference.
+**Full run launched 2026-09-17:** 200 prefixes x 3 conditions (~6 h), resuming from the pilot
+rows, log `data/results/logs/gemma-9b_prefill_full.log`, results
+`data/results/gemma-9b_prefill1000_seed0.jsonl`. Hypothesis (paper): detector ablation lowers
+continuation relevance (recovery impaired) while random ablation does not.
+
 ## What would move this further
 
 1. A judge with better recall of fragmentary restarts (the two judges agreed on 2 of 5 flagged
