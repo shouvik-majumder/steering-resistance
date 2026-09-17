@@ -202,6 +202,13 @@ D:\dev\ESR\
   words", "titles and references", ... and notably "mauvaise reponse fausse" (French: wrong /
   false answer, d = 2.2). Reading: mismatched answers look like detached documents rather than
   replies, plus at least one candidate "wrong answer" signal. Heterogeneous, as in the paper.
+- **Overnight episode 2 (latent 15730 "catch blocks", boost 0.76, "How do you calculate the
+  area of irregular shapes?", meta-prompt):** the clearest noticing so far. The model says
+  "wait, what was I doing before I got sidetracked? Oh, to answer your question...", gives real
+  methods, is dragged back to "catch"/"exceptions", says "oh wait, no, that's not relevant",
+  "gets me off topic again", "sorry, too many diversions, back to the actual methods", "back to
+  the original question". Self-judge scores 20.6 -> 0 -> 27.3: multi-attempt and (marginally)
+  improved, i.e. an ESR success by the paper's definition. Regex cues extended accordingly.
 - **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
   data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
   `--random-control 1` on the same 20 latents; compare multi-attempt rates.
