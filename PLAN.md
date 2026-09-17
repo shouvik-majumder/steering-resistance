@@ -292,6 +292,17 @@ Judge upgrade: `LocalJudge.two_pass` first lists verbatim restart sentences (kep
 in the text), used as extra gate anchors and reported as `restart-any`.
 Pilot: 10 prefixes x 3 conditions. Full run: 200 x 3 = 600 generations (~9 h).
 
+**Prefill pilot result (10 prefixes x 3 conditions):** 0 explicit restarts in 27 scored
+continuations (regex and Qwen two-pass judge agree), but the continuations are visibly back on
+topic: garbled patent text -> "Let me know if you want to explore 3D shapes..."; broken
+research-paper text -> "Taking notes... Evaluating sources". Gemma-2-9B *recovers silently*.
+This is the paper's own stated blind spot (explicit-restart metric misses implicit recovery,
+Sec. 5.1). Design change: the primary outcome becomes **continuation relevance (0-100, judged
+on the continuation alone, as in the paper's Sec. 3.7 relevance judge)**, a continuous measure
+available on every trial, with the paired difference (ablate - none, random - none) per prefix.
+Also found and fixed: the self-judge's pass-1 copied out every sentence as a "restart";
+listed sentences must now contain a self-correction cue and lists > 4 are discarded.
+
 ## What would move this further
 
 1. A judge with better recall of fragmentary restarts (the two judges agreed on 2 of 5 flagged

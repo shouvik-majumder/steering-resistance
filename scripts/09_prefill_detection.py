@@ -116,24 +116,52 @@ def main() -> None:
                                   meta_prompt=None, assistant_prefix=pf["prefix"])
             full = pf["prefix"] + gen.response
             res = judge.grade(pf["prompt"], full, pf["source_label"])
+            # Primary outcome: relevance of the continuation alone (recovery is usually silent).
+            cont_score, cont_raw = judge.grade_continuation(pf["prompt"], gen.response) if hasattr(judge, "grade_continuation") else (None, "")
             n_events = len(restart_clusters(gen.response))
             row.update({"model": args.model, "label": pf["source_label"], "prefix": pf["prefix"], "continuation": gen.response,
                         "response": full, "prefix_id": pi, "source": {k: pf[k] for k in ("source_seed", "source_boost", "source_first_score", "source_file")},
                         "ablated": ablate_sets[cond], "n_new_tokens": gen.n_new_tokens, "hit_eos": gen.hit_eos,
-                        "gen_seconds": round(gen.seconds, 2), "judge": res.to_dict(), "ts": time.time()})
+                        "gen_seconds": round(gen.seconds, 2), "judge": res.to_dict(),
+                        "cont_score": cont_score, "cont_raw": cont_raw[-300:], "ts": time.time()})
             append_jsonl(out_path, row)
             n_new += 1
             flag = f"  <-- RESTART x{n_events}" if n_events else ("  <-- judge-sentence" if res.restart_sentences else "")
-            print(f"[prefix {pi} {cond:<6}] tokens={gen.n_new_tokens} {gen.seconds:.0f}s attempts={len(res.attempts)} "
-                  f"scores={[round(a.score) if a.score is not None else None for a in res.attempts]}{flag}")
+            print(f"[prefix {pi} {cond:<6}] tokens={gen.n_new_tokens} {gen.seconds:.0f}s cont_score={cont_score} "
+                  f"attempts={len(res.attempts)} scores={[round(a.score) if a.score is not None else None for a in res.attempts]}{flag}")
         if (pi + 1) % 10 == 0:
             print(f"  -- {n_new} new generations, {(time.perf_counter() - t0) / 60:.0f} min --")
-            for k, summ in summarize_by(list(read_jsonl(out_path)), "condition").items():
-                print("  " + format_summary(k, summ))
+            print_summary(out_path)
     print("\nFINAL")
-    for k, summ in summarize_by(list(read_jsonl(out_path)), "condition").items():
-        print(format_summary(k, summ))
+    print_summary(out_path)
     print(engine.vram_report())
+
+
+def print_summary(out_path: Path) -> None:
+    import math
+
+    rows = list(read_jsonl(out_path))
+    for k, summ in summarize_by(rows, "condition").items():
+        print("  " + format_summary(k, summ))
+    # Continuation relevance per condition, plus the paired difference vs 'none' on shared prefixes.
+    by_cond: dict[str, dict[int, float]] = {}
+    for r in rows:
+        if r.get("cont_score") is not None:
+            by_cond.setdefault(r["condition"], {})[r["prefix_id"]] = r["cont_score"]
+    base = by_cond.get("prefill_none", {})
+    for cond, d in sorted(by_cond.items()):
+        vals = list(d.values())
+        mean = sum(vals) / len(vals)
+        sem = (math.sqrt(sum((v - mean) ** 2 for v in vals) / (len(vals) - 1)) / math.sqrt(len(vals))) if len(vals) > 1 else float("nan")
+        shared = [pid for pid in d if pid in base] if cond != "prefill_none" else []
+        if shared:
+            diffs = [d[pid] - base[pid] for pid in shared]
+            dm = sum(diffs) / len(diffs)
+            dsem = (math.sqrt(sum((x - dm) ** 2 for x in diffs) / (len(diffs) - 1)) / math.sqrt(len(diffs))) if len(diffs) > 1 else float("nan")
+            paired = f"  paired diff vs none = {dm:+.1f} +/- {dsem:.1f} (n={len(diffs)})"
+        else:
+            paired = ""
+        print(f"  {cond:<16} continuation relevance = {mean:5.1f} +/- {sem:.1f} (n={len(vals)}){paired}")
 
 
 if __name__ == "__main__":

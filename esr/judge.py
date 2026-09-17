@@ -305,6 +305,26 @@ class _LLMJudge:
         return JudgeResult(attempts=attempts, raw=raw, judge=self.name, n_attempts_raw=n_raw,
                            seconds=time.perf_counter() - t0, restart_sentences=sentences)
 
+    def grade_continuation(self, prompt: str, continuation: str) -> tuple[float | None, str]:
+        """Relevance (0-100) of a continuation whose beginning is omitted (paper Sec. 3.7 style
+        'simple relevance judge'). Used for prefill experiments where recovery is often silent."""
+        user = (
+            "You are given a user prompt and the CONTINUATION of an assistant's answer; the beginning of the "
+            "answer is omitted on purpose. Rate from 0 to 100 how well the continuation itself addresses the "
+            "prompt: 100 = fully relevant and helpful for this prompt, 0 = unrelated, nonsensical or about a "
+            "different topic. Judge only the continuation text. Give one sentence of reasoning, then output "
+            "<json>{\"score\": N}</json>.\n\n"
+            f"Prompt: {prompt}\n<continuation>\n{continuation}\n</continuation>"
+        )
+        try:
+            raw = self._complete("You are a strict, consistent grader. Always end with the requested JSON.", user)
+        except Exception as e:
+            return None, f"{type(e).__name__}: {e}"
+        m = re.search(r'"score"\s*:\s*(-?\d+(?:\.\d+)?)', raw)
+        if not m:
+            return None, raw
+        return max(0.0, min(100.0, float(m.group(1)))), raw
+
     def concreteness(self, labels: list[str], batch_size: int = 25) -> dict[str, float]:
         """Rate label concreteness 0-100 (paper A.1.2 / A.2.1)."""
         ratings: dict[str, float] = {}
