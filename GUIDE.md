@@ -226,6 +226,23 @@ each answer and scores it, so we can count how often this happens.
 
 ---
 
+### Terms from the Phase C analysis
+
+- **Hot-spot replay** (`07_hotspot_replay.py`): re-running a (prompt, latent, boost) combination
+  that once produced a restart with many fresh seeds, under matched conditions (no ablation /
+  detector ablation / random ablation), to test ablation where restarts are likeliest. On 9B the
+  pilot found 0 restarts in 30 replays: the original restart was luck of the sampling, not a
+  property of the configuration.
+- **Trace** (`08_episode_traces.py`): re-running a saved response through the model with its
+  original steering and reading the detector latents' activity at every token, then plotting it
+  with the restart positions marked (`data/plots/traces/`). This is a forward pass only, so it
+  needs no new episodes.
+- **z-score**: a value expressed in standard deviations away from a reference mean. We express
+  each detector latent's activity relative to its mean and spread on unsteered on-topic answers,
+  so latents with naturally large activations do not dominate a plain sum.
+- **Paired design**: comparing conditions on the same seeds, so random variation between seeds
+  cancels out and smaller effects become detectable.
+
 ## 9. Engineering and workflow words
 
 - **Environment (conda env)**: an isolated set of Python packages. `conda activate esr` switches
