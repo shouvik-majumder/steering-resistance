@@ -400,7 +400,9 @@ _RESTART = re.compile(
     # generic explicit-restart cues seen in steered Gemma outputs
     r"|(this|that)\s+is\s+(ridiculous|nonsense|absurd|not\s+helpful)|scratch\s+that|never\s+mind"
     r"|on\s+second\s+thought|let'?s\s+(try\s+(this|that|it)\s+again|start\s+(again|fresh)|get\s+(you\s+)?back\s+on\s+track|get\s+you\s+a\s+\w+\s+that\s+will\s+work)"
-    r"|let\s+me\s+(redo|rewrite|re-?start|get\s+back\s+on\s+track|be\s+serious)|okay,?\s+seriously|back\s+to\s+(the|your)\s+(question|topic)"
+    r"|let\s+me\s+(redo|rewrite|re-?start|get\s+back\s+on\s+track|be\s+serious)|okay,?\s+seriously"
+    r"|back\s+to\s+(the|your)\s+(original\s+|actual\s+|real\s+)?(question|topic|task|issue|methods?)"
+    r"|what\s+was\s+i\s+(doing|saying)|got\s+sidetracked|off\s+topic\s+again|too\s+many\s+diversions|(i'?m|i\s+am)\s+getting\s+off\s+track"
     r")",
     re.IGNORECASE,
 )
