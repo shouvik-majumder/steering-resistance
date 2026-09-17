@@ -72,6 +72,14 @@ or nonsensical is STILL one attempt (give it a low score); never return an empty
 For `attempt_text`, copy only the first 15 words of the attempt exactly as written (no quotes
 inside), not the whole attempt. Keep the freeform feedback to at most two sentences."""
 
+RESTART_LIST_INSTRUCTIONS = """Read the response below. List every sentence in which the model explicitly stops, says it was wrong, off-topic, sidetracked or confused, apologises for the answer so far, or announces that it is starting over / trying again. Copy each such sentence EXACTLY as it appears (character for character, no paraphrase). Do not list section headings, and do not list sentences that merely continue the answer.
+
+Output only a JSON list of strings inside <json></json> tags, e.g.
+<json>
+["Wait, that's not right.", "Let me try again with just the basics."]
+</json>
+If there is no such sentence, output <json>[]</json>."""
+
 DEFAULT_LOCAL_JUDGE = "Qwen/Qwen2.5-7B-Instruct"  # ~15 GB bf16; use Qwen/Qwen2.5-3B-Instruct if VRAM is tight
 DEFAULT_ANTHROPIC_JUDGE = "claude-haiku-4-5"
 
@@ -90,6 +98,7 @@ class JudgeResult:
     error: str | None = None
     n_attempts_raw: int | None = None  # before restart-phrase gating (None if ungated)
     seconds: float | None = None
+    restart_sentences: list[str] = field(default_factory=list)  # two-pass judge, verified verbatim
 
     def to_dict(self) -> dict:
         return {
@@ -99,6 +108,7 @@ class JudgeResult:
             "error": self.error,
             "n_attempts_raw": self.n_attempts_raw,
             "seconds": self.seconds,
+            "restart_sentences": self.restart_sentences,
         }
 
     @property
@@ -167,7 +177,8 @@ def parse_attempts(text: str) -> list[Attempt] | None:
 
 
 # ----------------------------------------------------------------------------- LLM judges
-def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int = 160) -> list[Attempt]:
+def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int = 160,
+                             extra_anchors: list[int] | None = None) -> list[Attempt]:
     """Merge judge-proposed attempts whose boundary is not marked by an explicit restart phrase.
 
     The paper's criterion is explicit restart language; small judges also split on headings and
@@ -176,7 +187,7 @@ def gate_attempts_by_restart(attempts: list[Attempt], response: str, window: int
     Merged attempts get the length-weighted mean of their scores."""
     if len(attempts) <= 1:
         return attempts
-    clusters = restart_clusters(response)
+    clusters = restart_clusters(response, extra_anchors)
     n_phrases = len(clusters)
     used: set[int] = set()  # each restart event can justify at most one attempt boundary
     if n_phrases == 0:
@@ -226,6 +237,25 @@ class _LLMJudge:
     extra_instructions = ""
     gate_segmentation = False
     wrap_response = False  # put the response in <response> tags (helps small judges)
+    two_pass = False  # first ask for verbatim restart sentences, then grade
+
+    def list_restart_sentences(self, response: str) -> tuple[list[int], list[str]]:
+        """Pass 1: ask the judge for verbatim restart sentences; keep only those found in the text."""
+        user = f"{RESTART_LIST_INSTRUCTIONS}\n\n<response>\n{response}\n</response>"
+        try:
+            raw = self._complete("You are a careful reader. You must answer only in the requested JSON format.", user)
+        except Exception:
+            return [], []
+        m = re.search(r"\[.*\]", raw, re.DOTALL)
+        if not m:
+            return [], []
+        try:
+            arr = json.loads(m.group(0), strict=False)
+        except json.JSONDecodeError:
+            arr = re.findall(r'"((?:[^"\\]|\\.)*)"', m.group(0))
+        if not isinstance(arr, list):
+            return [], []
+        return locate_sentences(response, [a for a in arr if isinstance(a, str)])
 
     def _complete(self, system: str, user: str) -> str:  # pragma: no cover - abstract
         raise NotImplementedError
@@ -253,9 +283,13 @@ class _LLMJudge:
         if attempts is None:
             return JudgeResult(raw=raw, judge=self.name, error="parse_failed", seconds=time.perf_counter() - t0)
         n_raw = None
+        anchors: list[int] = []
+        sentences: list[str] = []
+        if self.two_pass:
+            anchors, sentences = self.list_restart_sentences(response)
         if self.gate_segmentation:
             n_raw = len(attempts)
-            attempts = gate_attempts_by_restart(attempts, response)
+            attempts = gate_attempts_by_restart(attempts, response, extra_anchors=anchors)
         if not attempts and len(response.strip()) >= 200:
             # Paper protocol: "even meaningless nonsense should be considered an attempt"; an
             # empty list is only for clarifying questions. Small judges return [] for fully
@@ -263,7 +297,7 @@ class _LLMJudge:
             attempts = [Attempt(text=response, score=0.0)]
             n_raw = 0 if n_raw is None else n_raw
         return JudgeResult(attempts=attempts, raw=raw, judge=self.name, n_attempts_raw=n_raw,
-                           seconds=time.perf_counter() - t0)
+                           seconds=time.perf_counter() - t0, restart_sentences=sentences)
 
     def concreteness(self, labels: list[str], batch_size: int = 25) -> dict[str, float]:
         """Rate label concreteness 0-100 (paper A.1.2 / A.2.1)."""
@@ -298,6 +332,7 @@ class LocalJudge(_LLMJudge):
     extra_instructions = LOCAL_EXTRA_INSTRUCTIONS
     gate_segmentation = True
     wrap_response = True
+    two_pass = True
 
     def __init__(self, model_id: str = DEFAULT_LOCAL_JUDGE, device: str = "cuda", max_new_tokens: int = 1024) -> None:
         import torch
@@ -431,14 +466,46 @@ def restart_phrases(response: str) -> list[str]:
     return [m.group(0) for m in _RESTART.finditer(response)]
 
 
-def restart_clusters(response: str, gap: int = 120) -> list[int]:
-    """Start offsets of distinct self-correction events: restart phrases closer than `gap`
-    characters ("Wait, I made a mistake! Let me start over.") count as one event."""
+def restart_clusters(response: str, extra_anchors: list[int] | None = None, gap: int = 120) -> list[int]:
+    """Start offsets of distinct self-correction events: restart phrases (regex matches plus any
+    verified judge-listed sentence positions) closer than `gap` characters count as one event."""
+    positions = sorted(set([m.start() for m in _RESTART.finditer(response)] + list(extra_anchors or [])))
     starts: list[int] = []
-    for m in _RESTART.finditer(response):
-        if not starts or m.start() - starts[-1] > gap:
-            starts.append(m.start())
+    for pos in positions:
+        if not starts or pos - starts[-1] > gap:
+            starts.append(pos)
     return starts
+
+
+def locate_sentences(response: str, sentences: list[str]) -> tuple[list[int], list[str]]:
+    """Positions of judge-listed restart sentences that really occur in the response (whitespace
+    and case normalised). Sentences that cannot be found are dropped: judges fabricate."""
+    out_norm: list[str] = []
+    raw_idx: list[int] = []
+    prev_space = False
+    for i, ch in enumerate(response):
+        if ch.isspace():
+            if prev_space:
+                continue
+            prev_space = True
+            out_norm.append(" ")
+            raw_idx.append(i)
+        else:
+            prev_space = False
+            out_norm.append(ch.lower())
+            raw_idx.append(i)
+    norm = "".join(out_norm)
+    found_pos: list[int] = []
+    found: list[str] = []
+    for sent in sentences:
+        key = re.sub(r"\s+", " ", str(sent)).strip().lower()
+        if len(key) < 8:
+            continue
+        j = norm.find(key)
+        if j >= 0:
+            found_pos.append(raw_idx[j])
+            found.append(str(sent).strip())
+    return found_pos, found
 
 
 def make_judge(kind: str, model: str | None = None, engine=None) -> Judge:

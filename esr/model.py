@@ -154,8 +154,12 @@ class SteeringEngine:
         temperature: float = 0.6,
         repetition_penalty: float | None = None,
         meta_prompt: str | None = None,
+        assistant_prefix: str | None = None,
     ) -> Generation:
-        ids = self.encode_text(self.chat_text(self.user_text(prompt, meta_prompt)))
+        """Generate a response. With `assistant_prefix`, the model's turn is prefilled with that
+        text and generation continues from it (the returned `response` is the continuation only)."""
+        text = self.chat_text(self.user_text(prompt, meta_prompt)) + (assistant_prefix or "")
+        ids = self.encode_text(text)
         torch.manual_seed(seed)
         torch.cuda.manual_seed_all(seed)
         kwargs: dict = dict(
