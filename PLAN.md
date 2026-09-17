@@ -215,6 +215,13 @@ D:\dev\ESR\
   forgot about a simple way to vacuum a room! Let me try again with just using a vacuum
   cleaner: Back to the basics:" and immediately relapses (pennies in a ziplock, socks with
   rice). Self-judge 0 -> 25. Three episodes on three different latents by latent 13/20.
+- **Overnight episode 4 (latent 2407 "standard measure, implementation, or deviations", boost
+  0.61, "How do you properly wash dishes by hand?", meta-prompt):** the answer collapses into
+  "operating procedures" and "deviation"; the model then writes "It seems I've devi devi
+  deviation ... I apologize for the output. The vocabulary used was also quite unusual. Let me
+  try again." and fails again (0 -> 0), adding "I would need to recognize and respond to certain
+  types of phrasing to successfully avoid deviations." Noticing without recovery. Four episodes
+  on four latents by latent 14/20.
 - **After that (Phase C):** run `03 --model gemma-9b --judge self --meta-prompt --ablate
   data/detectors/gemma-9b_seed0_response.json --ablate-set top_by_cohen_d` and the same with
   `--random-control 1` on the same 20 latents; compare multi-attempt rates.
