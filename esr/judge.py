@@ -507,8 +507,7 @@ def restart_phrases(response: str) -> list[str]:
 def _in_quotes(text: str, pos: int) -> bool:
     """True if `pos` sits inside a quoted span on its line (quoted advice such as
     'say "Sorry, let me rephrase that"' is not the model correcting itself)."""
-    line_start = text.rfind("
-", 0, pos) + 1
+    line_start = text.rfind("\n", 0, pos) + 1
     before = text[line_start:pos]
     n_quotes = sum(before.count(q) for q in ('"', "“", "”"))
     return n_quotes % 2 == 1
