@@ -202,6 +202,13 @@ interpretability.
 
 ---
 
+## Status
+
+- **Project 1 (belief-state geometry) is built and running** in `D:\develief-geometry`
+  (conda env `beliefgeom`). See its README for results.
+- Setup plans for projects 2 and 3, plus a learning-ranked backlog, are in
+  [SETUP_PLANS.md](SETUP_PLANS.md).
+
 ## Suggested order
 
 1. **Belief-state geometry** (1 to 2 days) — build the vocabulary where ground truth exists.
