@@ -463,7 +463,8 @@ _RESTART = re.compile(
     r"|on\s+second\s+thought|let'?s\s+(try\s+(this|that|it)\s+again|start\s+(again|fresh)|get\s+(you\s+)?back\s+on\s+track|get\s+you\s+a\s+\w+\s+that\s+will\s+work)"
     r"|let\s+me\s+(redo|rewrite|re-?start|get\s+back\s+on\s+track|be\s+serious)|okay,?\s+seriously"
     r"|back\s+to\s+(the|your)\s+(original\s+|actual\s+|real\s+)?(question|topic|task|issue|methods?)"
-    r"|what\s+was\s+i\s+(doing|saying)|got\s+sidetracked|off\s+topic\s+again|too\s+many\s+diversions|(i'?m|i\s+am)\s+getting\s+off\s+track"
+    r"|what\s+was\s+i\s+(doing|saying)|(got|getting|was)\s+sidetracked|off\s+topic\s+again|too\s+many\s+diversions|(i'?m|i\s+am)\s+getting\s+off\s+track"
+    r"|whoops|oops,?\s+let\s+me|let\s+me\s+try\s+(that|this)\s+again|hold\s+it\s*[-,]|i\s+need\s+to\s+stay\s+focused|back\s+to\s+the\s+\w+\s+of\s+possible"
     r")",
     re.IGNORECASE,
 )

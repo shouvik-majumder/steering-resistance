@@ -312,7 +312,34 @@ rows, log `data/results/logs/gemma-9b_prefill_full.log`, results
 `data/results/gemma-9b_prefill1000_seed0.jsonl`. Hypothesis (paper): detector ablation lowers
 continuation relevance (recovery impaired) while random ablation does not.
 
-## What would move this further
+## Prefill-detection result (2026-09-18, 200 prefixes x 3 conditions, 600 continuations)
+
+| Condition (unsteered continuation of a ~1000-char off-topic prefix) | Continuation relevance | Paired diff vs none (95% CI) | p (paired t / Wilcoxon) |
+|---|---|---|---|
+| none | 62.1 +/- 3.1 | - | - |
+| 26 detector latents ablated | 60.6 +/- 3.2 | -1.5 [-5.0, +2.0] | 0.39 / 0.27 |
+| 26 random matched latents ablated | 61.5 +/- 3.1 | -0.6 [-3.2, +2.1] | 0.69 / 0.40 |
+| detector vs random | | -0.9 [-4.4, +2.5] | 0.58 / 0.58 |
+
+Source prefixes scored 18.2 on average; continuations 62. Gemma-2-9B recovers from an off-topic
+start in ~65% of cases (relevance >= 50), almost always silently: 0/600 continuations contain
+regex restart language; the two-pass judge found a handful of genuine mild acknowledgements
+("Whoops, let me try that again", "I was getting sidetracked by 300's", "(Hold it - I need to
+stay focused. Back to the map of possible combinations!)"), i.e. verbal restarts are rare here
+too, ~1-2%.
+
+**Conclusion.** Zero-ablating the contrastively found detector latents does *not* impair
+recovery: the effect is -1.5 points with a CI excluding anything larger than ~5 points, and it is
+statistically identical to ablating random latents. Combined with the token traces (these
+latents are equally elevated in steered text that never restarts), the evidence on Gemma-2-9B is
+that the "off-topic detector" latents found by prompt/response mismatch *index off-topic content*
+but are not a causal bottleneck for the model's (silent) recovery. This does not contradict the
+paper's Llama-70B result (different model, SAE, judge and outcome: explicit restarts vs recovery
+relevance), but it shows the causal claim does not transfer to this setting with this method.
+Caveats: 26 latents from a 16k SAE with 0.61 explained variance; single layer; ablation implemented
+as subtracting each latent's decoded contribution at layer 26 only.
+
+## What would move this further (updated)
 
 1. A judge with better recall of fragmentary restarts (the two judges agreed on 2 of 5 flagged
    episodes) -- e.g. a two-pass judge that first lists restart sentences, then scores.
