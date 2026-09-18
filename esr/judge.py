@@ -504,10 +504,21 @@ def restart_phrases(response: str) -> list[str]:
     return [m.group(0) for m in _RESTART.finditer(response)]
 
 
+def _in_quotes(text: str, pos: int) -> bool:
+    """True if `pos` sits inside a quoted span on its line (quoted advice such as
+    'say "Sorry, let me rephrase that"' is not the model correcting itself)."""
+    line_start = text.rfind("
+", 0, pos) + 1
+    before = text[line_start:pos]
+    n_quotes = sum(before.count(q) for q in ('"', "“", "”"))
+    return n_quotes % 2 == 1
+
+
 def restart_clusters(response: str, extra_anchors: list[int] | None = None, gap: int = 120) -> list[int]:
     """Start offsets of distinct self-correction events: restart phrases (regex matches plus any
     verified judge-listed sentence positions) closer than `gap` characters count as one event."""
-    positions = sorted(set([m.start() for m in _RESTART.finditer(response)] + list(extra_anchors or [])))
+    positions = sorted(set([m.start() for m in _RESTART.finditer(response) if not _in_quotes(response, m.start())]
+                           + list(extra_anchors or [])))
     starts: list[int] = []
     for pos in positions:
         if not starts or pos - starts[-1] > gap:
