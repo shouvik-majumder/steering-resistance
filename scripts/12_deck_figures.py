@@ -310,8 +310,8 @@ def fig_prefill() -> None:
 
     fig, axes = plt.subplots(1, 2, figsize=(9.5, 3.6))
     ax = axes[0]
-    labels = ["off-topic prefix\n(the model's own\nsteered text)", "continuation\nno ablation",
-              "continuation\ndetectors ablated", "continuation\nrandom latents ablated"]
+    labels = ["off-topic\nprefix", "continuation\nno ablation",
+              "continuation\ndetectors\nablated", "continuation\nrandom\nablated"]
     vals = [src.mean(), cs["none"].mean(), cs["ablate"].mean(), cs["random"].mean()]
     errs = [np.std(v, ddof=1) / np.sqrt(len(v)) for v in (src, cs["none"], cs["ablate"], cs["random"])]
     ax.bar(np.arange(4), vals, yerr=errs, color=[GREY, DARK, ACCENT, GREY], edgecolor=DARK,
