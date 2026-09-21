@@ -43,9 +43,11 @@ def build() -> Deck:
             notes="Steering stays on for the whole generation, so any recovery happens against a live perturbation.")
 
     d.slide("Steering has a narrow usable window", image=FIG / "fig02_boost_sweep.png",
-            bullets=["Too weak: nothing changes. Too strong: the text collapses into repetition.",
-                     "Self-correction can only happen in between, which is why strength has to be calibrated."],
-            notes="This is the practical reason the experiment needs per-latent calibration.")
+            bullets=["Relevance falls from 73 to 9 as strength rises, while repeated word pairs go from 3% to 40%.",
+                     "Self-correction can only happen in between: off topic but still coherent.",
+                     "The target band is crossed near 0.7, which is where the per-latent calibration lands."],
+            notes="Gemma-2-2B, 4 latents x 6 strengths x 3 trials. This is the practical reason "
+                  "the experiment needs per-latent calibration rather than one shared setting.")
 
     d.slide("Every latent needs its own steering strength", image=FIG / "fig03_calibration.png",
             bullets=["Calibrated per latent by probabilistic bisection to a first-attempt score of about 30/100.",
