@@ -33,12 +33,15 @@ reduces the effect. This repo
   Attempt boundaries are accepted only where a restart phrase actually occurs in the model's
   text, which stops the judge from inventing self-corrections. The paper's Claude judge is
   optional (`--judge anthropic`).
-- **Boost sweep**: how relevance and coherence degrade with steering strength.
+- **Boost sweep**: how relevance and coherence degrade with steering strength, which is why each
+  latent needs its own calibrated strength (below).
 - **Detector activity without restarts**: the same latents measured in steered text where the
   model never restarts, a control for the correlational claim.
 - **Prefill test with paired ablation**: an unsteered model continues its own off-topic text,
   with and without the detector latents ablated, and with random latents ablated. This gives the
   causal test enough power despite restarts being rare.
+
+![Boost sweep](figures/boost_sweep.png)
 
 ## Results
 
@@ -63,8 +66,8 @@ reduces the effect. This repo
 ## Setup
 
 ```bash
-git clone git@github.com:shouvik-majumder/ESR.git
-cd ESR
+git clone git@github.com:shouvik-majumder/steering-resistance.git
+cd steering-resistance
 conda create -n esr python=3.12 -y
 conda activate esr
 pip install torch --index-url https://download.pytorch.org/whl/cu128   # or the build for your system
