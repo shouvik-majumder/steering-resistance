@@ -1,0 +1,10 @@
+torch
+sae-lens
+transformers
+accelerate
+python-dotenv
+numpy
+scipy
+matplotlib
+tqdm
+anthropic   # optional, only for --judge anthropic

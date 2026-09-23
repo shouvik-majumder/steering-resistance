@@ -1,6 +1,7 @@
 """Project configuration: paths, model/SAE registry, experiment settings.
 
-Import this module before `transformers` so that HF_HOME points at the big D: drive.
+Import this module before `transformers`: it sets HF_HOME to `.hf_cache/` in the repository
+unless HF_HOME is already set.
 """
 from __future__ import annotations
 

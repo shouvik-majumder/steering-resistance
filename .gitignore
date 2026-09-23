@@ -9,4 +9,8 @@ data/detectors/
 data/cache/
 data/plots/
 *.tmp
+*.log
 data/deck/preview/
+data/traces/
+data/deck/
+data/plots/

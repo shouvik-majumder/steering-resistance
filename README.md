@@ -1,55 +1,115 @@
-# ESR on a single GPU
+# Endogenous steering resistance on a single GPU
 
-Replication of *Endogenous Resistance to Activation Steering in Language Models*
-(McKenzie et al., ICML 2026, [arXiv:2602.06941](https://arxiv.org/abs/2602.06941)) using
-Gemma-2-2B/9B-it, Gemma Scope SAEs and plain HF `transformers` hooks. See [PLAN.md](PLAN.md)
-for the design and the honest scope discussion.
+A small, self-contained re-implementation of
 
-## Setup (Windows, PowerShell, conda)
+> McKenzie et al., *Endogenous Resistance to Activation Steering in Language Models*, ICML 2026
+> ([arXiv:2602.06941](https://arxiv.org/abs/2602.06941))
 
-```powershell
-cd D:\dev\ESR
-conda activate esr               # created with: conda create -n esr python=3.12
-                                 # + pip install torch --index-url https://download.pytorch.org/whl/cu128
-                                 # + pip install sae-lens transformers accelerate anthropic python-dotenv numpy scipy pandas matplotlib seaborn tqdm huggingface_hub
-Copy-Item .env.example .env      # then fill HF_TOKEN (ANTHROPIC_API_KEY is optional)
-python scripts\00_smoke_test.py
+written for learning and experimenting. It is not the authors' code and is not affiliated with
+them; see the paper for the original work.
+
+## What it does
+
+Activation steering adds a fixed direction to a model's residual stream, pushing it toward an
+unrelated concept while it answers a question. The paper reports that models sometimes notice
+this mid-answer, say so, and return to the question while the push is still on: *endogenous
+steering resistance* (ESR). It also reports that ablating a set of "off-topic detector" SAE latents
+reduces the effect. This repo
+
+1. steers Gemma-2-2B-IT and Gemma-2-9B-IT with Gemma Scope SAE decoder directions, every token
+   of the answer,
+2. calibrates each latent's steering strength by probabilistic bisection to a target first-attempt
+   relevance score,
+3. has a judge split each answer into attempts and score them, and computes multi-attempt,
+   improvement and ESR rates with Wilson intervals,
+4. finds candidate detector latents by contrastive search, and tests them by ablation against a
+   random-latent control.
+
+![Self-correction rates](figures/rates.png)
+
+## Additions beyond the paper
+
+- **Free and local.** The default judge is an open model (Qwen2.5-7B-Instruct) on the same GPU.
+  Attempt boundaries are accepted only where a restart phrase actually occurs in the model's
+  text, which stops the judge from inventing self-corrections. The paper's Claude judge is
+  optional (`--judge anthropic`).
+- **Boost sweep**: how relevance and coherence degrade with steering strength.
+- **Detector activity without restarts**: the same latents measured in steered text where the
+  model never restarts, a control for the correlational claim.
+- **Prefill test with paired ablation**: an unsteered model continues its own off-topic text,
+  with and without the detector latents ablated, and with random latents ablated. This gives the
+  causal test enough power despite restarts being rare.
+
+## Results
+
+| | Gemma-2-2B | Gemma-2-9B |
+|---|---|---|
+| Unsteered: explicit restarts | 0 of 10 | not run |
+| Steered: explicit restarts | 0 of 30 | 2.5% (n = 40) |
+| Steered + meta-prompt: explicit restarts | 0 of 30 | 2.7% (n = 440) |
+
+- Self-correction appears only in the larger model, at a few percent, within the range the paper
+  reports for models of this size.
+- The candidate detector latents are about six times more active in steered text than in
+  unsteered text, but equally active in steered text where the model never restarts: they track
+  off-topic content rather than the decision to correct.
+- Continuing its own off-topic text, the unsteered 9B model recovers relevance from 18 to 62
+  (0-100), almost always without a restart phrase. Ablating the 26 detector latents changes
+  recovery by -1.5 points (95% CI -5.0 to +2.0), no different from ablating random latents.
+
+![Detector activity](figures/detector_activity.png)
+![Prefill ablation](figures/prefill_ablation.png)
+
+## Setup
+
+```bash
+git clone git@github.com:shouvik-majumder/ESR.git
+cd ESR
+conda create -n esr python=3.12 -y
+conda activate esr
+pip install torch --index-url https://download.pytorch.org/whl/cu128   # or the build for your system
+pip install -r requirements.txt
+cp .env.example .env    # then add a Hugging Face token (HF_TOKEN)
 ```
 
-To recreate the env from scratch see `environment.yml`.
+Gemma is gated: accept its licence on Hugging Face with the account that owns `HF_TOKEN`.
+Gemma-2-2B and the local judge fit together on a 24 GB GPU. For Gemma-2-9B, generate first with
+`--judge none` and judge afterwards with `05_judge_results.py`.
 
-Gemma weights are gated: accept the license at https://huggingface.co/google/gemma-2-2b-it
-with the account that owns `HF_TOKEN`.
+## Usage
 
-## Workflow
+| Step | Command |
+|---|---|
+| Smoke test (SAE, hook, generation) | `python scripts/00_smoke_test.py` |
+| Look at steering by eye | `python scripts/01_steer_demo.py --search "body"` |
+| Calibrate steering strength | `python scripts/02_calibrate.py --latents <ids>` |
+| Run the protocol | `python scripts/03_run_esr.py --n-latents 20 --trials-per-latent 10 [--meta-prompt]` |
+| Find detector latents | `python scripts/04_find_detectors.py` |
+| Judge saved results | `python scripts/05_judge_results.py --results "data/results/*.jsonl"` |
+| Metrics and plots | `python scripts/06_analyze.py --plots` |
+| Replay high-rate configurations with ablation | `python scripts/07_hotspot_replay.py --model gemma-9b --judge self` |
+| Detector traces through episodes | `python scripts/08_episode_traces.py --model gemma-9b --detectors <file>` |
+| Prefill test with paired ablation | `python scripts/09_prefill_detection.py --model gemma-9b --judge self` |
+| Boost sweep | `python scripts/11_boost_sweep.py --model gemma-2b --latents <ids>` |
 
-Everything runs for free on the local GPU. The judge is an open instruct model
-(`--judge local`, default `Qwen/Qwen2.5-7B-Instruct`, ~15 GB; use
-`--judge-model Qwen/Qwen2.5-3B-Instruct` if it does not fit next to the target model).
-`--judge regex` only counts explicit restart phrases (no scores, no calibration).
-The paper's paid Claude judge is still available as `--judge anthropic` but is optional.
-
-| Step | Command | Needs |
-|---|---|---|
-| 0. SAE loads, hook is right, generation works | `python scripts/00_smoke_test.py` (`--sae-only` without HF token) | GPU |
-| 1. Look at steering by eye | `python scripts/01_steer_demo.py --search body` then `--latent <id> --boosts 0,0.5,1,2,3 --judge regex` | GPU |
-| 2. Calibrate steering strength | `python scripts/02_calibrate.py --latents <ids>` | GPU (target model + local judge) |
-| 3. Run the protocol | `python scripts/03_run_esr.py --n-latents 20 --trials-per-latent 10 [--meta-prompt]` | GPU |
-| 3b. Big model: generate now, judge later | `python scripts/03_run_esr.py --model gemma-9b --judge none --boosts 0.5,1,1.5,2` then `python scripts/05_judge_results.py --results "data/results/gemma-9b_*.jsonl"` | GPU |
-| 4. Find detector latents | `python scripts/04_find_detectors.py` | GPU |
-| 5. Ablation + random control | `python scripts/03_run_esr.py --ablate data/detectors/gemma-2b_seed0_response.json` and `... --random-control 1` | GPU |
-| 6. Metrics and plots | `python scripts/06_analyze.py --plots` | - |
-
-All long runs append one JSON line per trial to `data/results/` and resume when re-run.
-Thresholds are cached in `data/thresholds/<model>.json`, sampled latents and the relevance
-filter in `data/cache/`.
+Runs append one JSON line per trial to `data/results/` and resume when re-run.
+`scripts/judge_check.py` sanity-checks a judge on canned responses.
 
 ## Layout
 
-- `esr/config.py` model registry (paper layers), experiment config, paths
-- `esr/model.py` `SteeringEngine`: HF model + SAE, steering/ablation forward hook, generate, activations
-- `esr/judge.py` Claude Haiku judge with the paper's prompt; regex fallback
-- `esr/threshold.py`, `esr/calibrate.py` probabilistic bisection to a 30/100 first-attempt score
-- `esr/features.py` Neuronpedia labels, relevance/concreteness filters, latent sampling
-- `esr/detectors.py` derangement contrastive search, Cohen's d
-- `esr/metrics.py` multi-attempt / improvement / ESR rates, Wilson CIs
+```
+esr/config.py      model/SAE registry, experiment settings, paths
+esr/model.py       SteeringEngine: model + SAE, steering/ablation hook, generation
+esr/judge.py       local, Anthropic and regex judges; restart-phrase gating
+esr/threshold.py   probabilistic bisection
+esr/calibrate.py   per-latent steering calibration
+esr/features.py    latent labels, relevance filter, latent sampling
+esr/detectors.py   contrastive detector search
+esr/metrics.py     multi-attempt, improvement and ESR rates, Wilson intervals
+data/labels/       Neuronpedia labels for the Gemma Scope SAEs used
+prompts.txt        the question set
+```
+
+## License
+
+MIT; see [LICENSE](LICENSE).
