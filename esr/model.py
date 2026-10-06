@@ -1,7 +1,8 @@
 """HF transformers model + Gemma Scope SAE with steering / ablation hooks.
 
-Why not TransformerLens: we need fast sampled generation with a repetition penalty and KV cache
-for thousands of 512-token completions. A `register_forward_hook` on the decoder layer whose
+Plain HF transformers is used rather than TransformerLens because thousands of 512-token
+completions need fast sampled generation with a repetition penalty and KV cache. A
+`register_forward_hook` on the decoder layer whose
 output is `blocks.L.hook_resid_post` gives the same intervention point with plain HF generate().
 
 Intervention (paper App. A.1.3), applied at every position of every forward pass:

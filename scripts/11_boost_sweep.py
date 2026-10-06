@@ -1,8 +1,8 @@
 """Boost sweep: how does the model's answer degrade as steering strength rises?
 
 The paper's Figure 3 says self-correction only happens in a narrow band of steering strength:
-too weak and nothing changes, too strong and the output is gibberish. We never plotted this for
-our own models, so this script sweeps a few latents across boosts and records the judged
+too weak and nothing changes, too strong and the output is gibberish. This script sweeps a few
+latents across boosts and records the judged
 first-attempt score plus two judge-free degeneracy measures.
 
   python scripts/11_boost_sweep.py --model gemma-2b --latents 8747,12525,13958 \
