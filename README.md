@@ -9,7 +9,7 @@ written for learning and experimenting. It is not the authors' code and is not a
 them; see the paper for the original work. Judge prompts and the threshold-finding routine are
 adapted from the authors' repository (Apache-2.0).
 
-## What it does
+## Overview
 
 Activation steering adds a fixed direction to a model's residual stream, pushing it toward an
 unrelated concept while it answers a question. The paper reports that models sometimes notice
